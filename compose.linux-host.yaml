@@ -1,0 +1,10 @@
+# Linux-only override for live Tide mode: the app shares the host network so the
+# TideCloak issuer (http://localhost:8080) is identical for browser and server.
+# Usage: docker compose -f compose.yaml -f compose.linux-host.yaml up --build
+services:
+  app:
+    network_mode: host
+    ports: !reset []
+    environment:
+      DATABASE_URL: postgresql://businessvault:businessvault@localhost:5432/businessvault
+      S3_ENDPOINT: http://localhost:9000
