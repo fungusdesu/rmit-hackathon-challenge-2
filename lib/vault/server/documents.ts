@@ -7,6 +7,7 @@ import { getMembership, getOrCreateUser } from "@/lib/organizations";
 import { getObjectStorage } from "@/lib/storage";
 import {
   CIPHERTEXT_OBJECT_CONTENT_TYPE,
+  DEMO_CIPHERTEXT_FORMAT,
   PENDING_UPLOAD_TTL_SECONDS,
   PRESIGNED_DOWNLOAD_TTL_SECONDS,
   PRESIGNED_UPLOAD_TTL_SECONDS,
@@ -20,7 +21,10 @@ import {
   type UploadInitResponse,
 } from "@/lib/vault/contracts";
 import { generateObjectKey } from "@/lib/storage/keys";
+import { DOWNLOAD_ANOMALY_WINDOW_SECONDS, recordDownload } from "./download-monitor";
+import { maybeSweepExpiredUploads } from "./maintenance";
 import { enforceRateLimit } from "./rate-limit";
+import { assertVaultIds } from "./validation";
 
 type DocumentWithOwner = Document & { owner: Pick<User, "displayName"> };
 
@@ -48,19 +52,26 @@ function auditPayload(doc: Pick<Document, "id" | "size" | "classification" | "ci
   return { documentId: doc.id, size: doc.size, classification: doc.classification, ciphertextFormat: doc.ciphertextFormat };
 }
 
-async function requireMember(organizationId: string, principal: Principal): Promise<Membership> {
+export async function requireMember(organizationId: string, principal: Principal): Promise<Membership> {
+  assertVaultIds(organizationId);
   const membership = await getMembership(organizationId, principal);
   if (!membership) throw new VaultError("not_found");
   return membership;
 }
 
-const ownerInclude = { owner: { select: { displayName: true } } } as const;
+// F-04: demo (non-E2EE) documents are only ever served in development auth mode.
+function demoFormatAllowed() {
+  return process.env.AUTH_MODE === "development";
+}
+
+const ownerInclude ={ owner: { select: { displayName: true } } } as const;
 
 async function findVisible(organizationId: string, membership: Membership, documentId: string): Promise<DocumentWithOwner> {
-  if (typeof documentId !== "string" || documentId.length === 0 || documentId.length > 64) throw new VaultError("not_found");
+  assertVaultIds(documentId);
   const doc = await db.document.findFirst({ where: { id: documentId, organizationId }, include: ownerInclude });
   if (!doc) throw new VaultError("not_found");
   if (doc.status === DocumentStatus.REJECTED) throw new VaultError("not_found");
+  if (!demoFormatAllowed() && doc.ciphertextFormat === DEMO_CIPHERTEXT_FORMAT) throw new VaultError("not_found");
   if (doc.status === DocumentStatus.PENDING_UPLOAD && doc.ownerId !== membership.userId) throw new VaultError("not_found");
   return doc;
 }
@@ -70,6 +81,7 @@ export async function listDocuments(organizationId: string, principal: Principal
   const docs = await db.document.findMany({
     where: {
       organizationId,
+      ...(demoFormatAllowed() ? {} : { ciphertextFormat: { not: DEMO_CIPHERTEXT_FORMAT } }),
       OR: [{ status: DocumentStatus.AVAILABLE }, { status: DocumentStatus.PENDING_UPLOAD, ownerId: membership.userId }],
     },
     include: ownerInclude,
@@ -79,6 +91,7 @@ export async function listDocuments(organizationId: string, principal: Principal
 }
 
 export async function getDocument(organizationId: string, principal: Principal, documentId: string): Promise<DocumentMetadata> {
+  assertVaultIds(organizationId, documentId);
   const membership = await requireMember(organizationId, principal);
   return toDocumentMetadata(await findVisible(organizationId, membership, documentId));
 }
@@ -87,6 +100,7 @@ export async function initUpload(organizationId: string, principal: Principal, i
   const membership = await requireMember(organizationId, principal);
   if (membership.role === MembershipRole.AUDITOR) throw new VaultError("forbidden");
   enforceRateLimit(principal, "upload-init");
+  maybeSweepExpiredUploads();
   const user = await getOrCreateUser(principal);
   const objectKey = generateObjectKey();
 
@@ -136,9 +150,11 @@ async function rejectDocument(organizationId: string, actorId: string, doc: Docu
 }
 
 export async function commitUpload(organizationId: string, principal: Principal, documentId: string): Promise<DocumentMetadata> {
+  assertVaultIds(organizationId, documentId);
   const membership = await requireMember(organizationId, principal);
   const doc = await findVisible(organizationId, membership, documentId);
   if (doc.ownerId !== membership.userId) throw new VaultError("forbidden");
+  enforceRateLimit(principal, "commit");
   if (doc.status !== DocumentStatus.PENDING_UPLOAD || !doc.uploadExpiresAt || doc.uploadExpiresAt.getTime() <= Date.now()) {
     throw new VaultError("invalid_state");
   }
@@ -147,30 +163,52 @@ export async function commitUpload(organizationId: string, principal: Principal,
   const head = await storage.headObject(doc.objectKey);
   if (!head) throw new VaultError("invalid_state");
 
-  let valid = head.size === doc.size && head.size <= maxCiphertextBytes() && head.contentType === CIPHERTEXT_OBJECT_CONTENT_TYPE;
+  const isValidHead = (h: { size: number; contentType: string | null } | null) =>
+    !!h && h.size === doc.size && h.size <= maxCiphertextBytes() && h.contentType === CIPHERTEXT_OBJECT_CONTENT_TYPE;
+
+  // F-01: promote the ciphertext to a server-only key that no presigned policy can write, then verify
+  // the promoted copy. Replaying the upload policy afterwards only touches the dead upload key.
+  const uploadKey = doc.objectKey;
+  let finalKey: string | null = null;
+  let valid = isValidHead(head);
   if (valid) {
-    const bytes = await storage.getObjectBytes(doc.objectKey);
-    valid = bytes.byteLength === doc.size && createHash("sha256").update(bytes).digest("hex") === doc.hash;
+    finalKey = generateObjectKey();
+    await storage.copyObject(uploadKey, finalKey);
+    valid = isValidHead(await storage.headObject(finalKey));
+    if (valid) {
+      const bytes = await storage.getObjectBytes(finalKey);
+      valid = bytes.byteLength === doc.size && createHash("sha256").update(bytes).digest("hex") === doc.hash;
+    }
   }
   if (!valid) {
+    if (finalKey) await storage.deleteObject(finalKey).catch(() => undefined);
     await rejectDocument(organizationId, membership.userId, doc);
     throw new VaultError("integrity_mismatch");
   }
 
+  const promotedKey = finalKey as string;
   const committedAt = new Date();
-  const updated = await db.$transaction(async (tx) => {
-    const result = await tx.document.updateMany({
-      where: { id: doc.id, organizationId, status: DocumentStatus.PENDING_UPLOAD },
-      data: { status: DocumentStatus.AVAILABLE, committedAt },
+  let updated: DocumentWithOwner;
+  try {
+    updated = await db.$transaction(async (tx) => {
+      const result = await tx.document.updateMany({
+        where: { id: doc.id, organizationId, status: DocumentStatus.PENDING_UPLOAD },
+        data: { status: DocumentStatus.AVAILABLE, committedAt, objectKey: promotedKey },
+      });
+      if (result.count !== 1) throw new VaultError("invalid_state");
+      await appendAudit(tx, organizationId, membership.userId, "DOCUMENT_COMMITTED", doc.id, auditPayload(doc));
+      return tx.document.findFirstOrThrow({ where: { id: doc.id, organizationId }, include: ownerInclude });
     });
-    if (result.count !== 1) throw new VaultError("invalid_state");
-    await appendAudit(tx, organizationId, membership.userId, "DOCUMENT_COMMITTED", doc.id, auditPayload(doc));
-    return tx.document.findFirstOrThrow({ where: { id: doc.id, organizationId }, include: ownerInclude });
-  });
+  } catch (error) {
+    await storage.deleteObject(promotedKey).catch(() => undefined);
+    throw error;
+  }
+  await storage.deleteObject(uploadKey).catch(() => undefined);
   return toDocumentMetadata(updated);
 }
 
 export async function issueDownload(organizationId: string, principal: Principal, documentId: string) {
+  assertVaultIds(organizationId, documentId);
   const membership = await requireMember(organizationId, principal);
   const doc = await findVisible(organizationId, membership, documentId);
   if (membership.role === MembershipRole.AUDITOR) throw new VaultError("forbidden");
@@ -179,6 +217,15 @@ export async function issueDownload(organizationId: string, principal: Principal
   if (doc.status !== DocumentStatus.AVAILABLE) throw new VaultError("invalid_state");
 
   const download = await getObjectStorage().createDownloadUrl(doc.objectKey, PRESIGNED_DOWNLOAD_TTL_SECONDS);
-  await db.$transaction((tx) => appendAudit(tx, organizationId, membership.userId, "DOCUMENT_DOWNLOAD_ISSUED", doc.id, auditPayload(doc)));
+  const anomalyCount = recordDownload(organizationId, membership.userId);
+  await db.$transaction(async (tx) => {
+    await appendAudit(tx, organizationId, membership.userId, "DOCUMENT_DOWNLOAD_ISSUED", doc.id, auditPayload(doc));
+    if (anomalyCount !== null) {
+      await appendAudit(tx, organizationId, membership.userId, "VAULT_DOWNLOAD_ANOMALY", membership.userId, {
+        count: anomalyCount,
+        windowSeconds: DOWNLOAD_ANOMALY_WINDOW_SECONDS,
+      });
+    }
+  });
   return { url: download.url, expiresAt: download.expiresAt.toISOString() };
 }

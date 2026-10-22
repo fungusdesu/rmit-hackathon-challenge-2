@@ -1,6 +1,6 @@
 import "./db-env";
 import { createHash, randomUUID } from "node:crypto";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MembershipRole, MembershipStatus } from "@prisma/client";
 import type { Principal } from "@/lib/auth/types";
 import { db } from "@/lib/db";
@@ -9,6 +9,7 @@ import { createMemoryStorage, type MemoryStorage } from "@/lib/storage/memory";
 import { VAULT_RATE_LIMIT_PER_MINUTE, VaultError, type UploadInitRequest } from "@/lib/vault/contracts";
 import { commitUpload, getDocument, initUpload, issueDownload, listDocuments } from "@/lib/vault/server/documents";
 import { resetRateLimitsForTests } from "@/lib/vault/server/rate-limit";
+import { resetDownloadMonitorForTests } from "@/lib/vault/server/download-monitor";
 
 
 function principal(): Principal {
@@ -194,6 +195,91 @@ describe.skipIf(process.env.VAULT_IT !== "1")("vault documents service", () => {
   it("download of pending doc is invalid_state", async () => {
     const { init } = await uploadAs(p.member);
     await expectCode(issueDownload(orgId, p.member, init.document.id), "invalid_state");
+  });
+
+  it("F-01: commit promotes ciphertext to a new server-only key", async () => {
+    const { committed, doc } = await uploadAndCommit(p.member);
+    const after = await db.document.findUniqueOrThrow({ where: { id: committed.id } });
+    expect(after.objectKey).not.toBe(doc.objectKey);
+    expect(storage.has(doc.objectKey)).toBe(false);
+    expect(storage.has(after.objectKey)).toBe(true);
+    storage.putObject(doc.objectKey, new Uint8Array([7, 7, 7, 7]));
+    expect(await storage.getObjectBytes(after.objectKey)).toEqual(new Uint8Array([1, 2, 3, 4]));
+    expect(JSON.stringify(committed)).not.toContain(after.objectKey);
+  });
+
+  it("F-01: hash mismatch leaves no promoted copy behind", async () => {
+    const { init, doc } = await uploadAs(p.member);
+    storage.putObject(doc.objectKey, new Uint8Array([9, 9, 9, 9]), "application/octet-stream");
+    await expectCode(commitUpload(orgId, p.member, init.document.id), "integrity_mismatch");
+    expect(storage.keys()).toHaveLength(0);
+  });
+
+  it("malformed ids are not_found before any DB query", async () => {
+    const membershipSpy = vi.spyOn(db.membership, "findFirst");
+    const documentSpy = vi.spyOn(db.document, "findFirst");
+    try {
+      const bad = ["", "a".repeat(65), "../x", "id with space", "x%00", "é"];
+      for (const id of bad) {
+        await expectCode(listDocuments(id, p.owner), "not_found");
+        await expectCode(getDocument(orgId, p.owner, id), "not_found");
+        await expectCode(getDocument(id, p.owner, "abc"), "not_found");
+        await expectCode(commitUpload(orgId, p.owner, id), "not_found");
+        await expectCode(issueDownload(orgId, p.owner, id), "not_found");
+        await expectCode(initUpload(id, p.owner, request(new Uint8Array([1]))), "not_found");
+      }
+      await expectCode(getDocument(orgId, p.owner, 42 as unknown as string), "not_found");
+      expect(membershipSpy).not.toHaveBeenCalled();
+      expect(documentSpy).not.toHaveBeenCalled();
+    } finally {
+      membershipSpy.mockRestore();
+      documentSpy.mockRestore();
+    }
+  });
+
+  it("F-04: demo-format docs are hidden outside development auth mode", async () => {
+    const previous = process.env.AUTH_MODE;
+    process.env.AUTH_MODE = "development";
+    try {
+      const bytes = new Uint8Array([5, 6, 7, 8]);
+      const init = await initUpload(orgId, p.owner, request(bytes, { ciphertextFormat: "demo-not-e2ee-v1" }));
+      const doc = await db.document.findUniqueOrThrow({ where: { id: init.document.id } });
+      storage.putObject(doc.objectKey, bytes, "application/octet-stream");
+      await commitUpload(orgId, p.owner, doc.id);
+      expect((await listDocuments(orgId, p.owner)).some((d) => d.id === doc.id)).toBe(true);
+      expect((await getDocument(orgId, p.owner, doc.id)).id).toBe(doc.id);
+
+      process.env.AUTH_MODE = "tide";
+      expect((await listDocuments(orgId, p.owner)).some((d) => d.id === doc.id)).toBe(false);
+      await expectCode(getDocument(orgId, p.owner, doc.id), "not_found");
+      await expectCode(issueDownload(orgId, p.owner, doc.id), "not_found");
+    } finally {
+      if (previous === undefined) delete process.env.AUTH_MODE;
+      else process.env.AUTH_MODE = previous;
+    }
+  });
+
+  it("F-03: rate limits commit", async () => {
+    const { init } = await uploadAs(p.member2);
+    resetRateLimitsForTests();
+    for (let i = 0; i < VAULT_RATE_LIMIT_PER_MINUTE; i++) await expectCode(commitUpload(orgId, p.member2, init.document.id), "invalid_state");
+    await expectCode(commitUpload(orgId, p.member2, init.document.id), "rate_limited");
+  });
+
+  it("rate limits download", async () => {
+    const { committed } = await uploadAndCommit(p.member);
+    for (let i = 0; i < VAULT_RATE_LIMIT_PER_MINUTE; i++) await issueDownload(orgId, p.member, committed.id);
+    await expectCode(issueDownload(orgId, p.member, committed.id), "rate_limited");
+  });
+
+  it("writes one VAULT_DOWNLOAD_ANOMALY per window", async () => {
+    resetDownloadMonitorForTests();
+    const { committed } = await uploadAndCommit(p.owner);
+    for (let i = 0; i < 15; i++) await issueDownload(orgId, p.owner, committed.id);
+    const anomalies = await db.auditEvent.findMany({ where: { organizationId: orgId, action: "VAULT_DOWNLOAD_ANOMALY", target: committed.ownerId } });
+    expect(anomalies).toHaveLength(1);
+    expect(anomalies[0].eventJson).toEqual({ count: 11, windowSeconds: 600 });
+    expect(await db.auditEvent.count({ where: { target: committed.id, action: "DOCUMENT_DOWNLOAD_ISSUED" } })).toBe(15);
   });
 
   it("rate limits upload-init", async () => {
