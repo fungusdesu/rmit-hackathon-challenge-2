@@ -30,6 +30,11 @@ export function createMemoryStorage(): MemoryStorage {
       if (!object) throw new Error("object_not_found");
       return object.bytes;
     },
+    async copyObject(sourceKey: string, destinationKey: string): Promise<void> {
+      const object = objects.get(sourceKey);
+      if (!object) throw new Error("object_not_found");
+      objects.set(destinationKey, { bytes: object.bytes.slice(), contentType: object.contentType });
+    },
     async deleteObject(objectKey: string): Promise<void> {
       objects.delete(objectKey);
     },
