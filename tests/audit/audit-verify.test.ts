@@ -1,3 +1,4 @@
+import "../vault/api/db-env";
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, afterAll, vi } from "vitest";
 
