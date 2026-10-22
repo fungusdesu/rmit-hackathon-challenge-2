@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authErrorResponse } from "@/lib/auth/errors";
 import { requirePrincipal } from "@/lib/auth/server";
 import { getMembership } from "@/lib/organizations";
 import { db } from "@/lib/db";
+import { governanceErrorResponse } from "@/lib/governance-error";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ organizationId: string; requestId: string }> }) {
   try {
@@ -13,6 +13,6 @@ export async function GET(request: NextRequest, context: { params: Promise<{ org
     if (!actionRequest) return NextResponse.json({ error: "not_found" }, { status: 404 });
     return NextResponse.json({ request: actionRequest, enforcement: "APP-LEVEL APPROVAL ONLY" });
   } catch (error) {
-    return authErrorResponse(error) ?? NextResponse.json({ error: "internal_error" }, { status: 500 });
+    return governanceErrorResponse(error);
   }
 }

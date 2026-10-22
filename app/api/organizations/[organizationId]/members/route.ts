@@ -26,7 +26,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ org
       orderBy: { createdAt: "asc" },
     });
 
-    return NextResponse.json({ members });
+    return NextResponse.json({ members, currentMember: { id: membership.id, userId: membership.userId, role: membership.role } });
   } catch (error) {
     return authErrorResponse(error) ?? NextResponse.json({ error: "internal_error" }, { status: 500 });
   }

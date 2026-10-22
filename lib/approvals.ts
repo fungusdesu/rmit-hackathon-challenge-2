@@ -154,7 +154,7 @@ export async function listActionRequests(organizationId: string, principal: Prin
   if (!(await getMembership(organizationId, principal))) return null;
   const expired = await db.actionRequest.findMany({ where: { organizationId, status: { in: [RequestStatus.PENDING, RequestStatus.AUTHORIZED] }, expiresAt: { lte: new Date() } }, select: { id: true } });
   for (const item of expired) await expireIfNeeded(organizationId, item.id);
-  return db.actionRequest.findMany({ where: { organizationId }, orderBy: { createdAt: "desc" }, include: { approvals: { include: { approver: { select: { displayName: true, email: true } } } }, requester: { select: { displayName: true, email: true } } } });
+  return db.actionRequest.findMany({ where: { organizationId }, orderBy: { createdAt: "desc" }, include: { approvals: { include: { approver: { select: { displayName: true, email: true } } } }, requester: { select: { displayName: true, email: true } }, executions: { select: { status: true, safeErrorCode: true, finishedAt: true } } } });
 }
 
 async function validApprovalCount(tx: Prisma.TransactionClient, request: { id: string; organizationId: string; requesterId: string; operationType: string; targetId: string; payloadDigest: string }, policy: { eligibleRoles: Prisma.JsonValue }) {

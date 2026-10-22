@@ -25,6 +25,7 @@ export default function MembersPage() {
   const orgId = ws.organizationId;
   const base = orgId ? `/api/organizations/${encodeURIComponent(orgId)}` : "";
   const [members, setMembers] = useState<Member[]>([]);
+  const [callerRole, setCallerRole] = useState<Role | null>(null);
   const [invitations, setInvitations] = useState<Invitation[] | null>(null);
   const [invError, setInvError] = useState<string | null>(null);
   const [policies, setPolicies] = useState<Policy[]>([]);
@@ -42,8 +43,9 @@ export default function MembersPage() {
     if (!base) return;
     setLoadError(null);
     try {
-      const data = await callApi<{ members: Member[] }>(`${base}/members`);
+      const data = await callApi<{ members: Member[]; currentMember?: { role: Role } }>(`${base}/members`);
       setMembers(data.members);
+      setCallerRole(data.currentMember?.role ?? null);
     } catch (cause) { setLoadError(errText(cause)); }
     try {
       const data = await callApi<{ invitations: Invitation[] }>(`${base}/invitations`);
@@ -61,7 +63,9 @@ export default function MembersPage() {
   const removeOwnerPolicy = policies.find(p => p.operationType === "REMOVE_OWNER");
   const quorum = quorumSummary(owners, removeOwnerPolicy?.requiredApprovals ?? null);
   const setupStatus = ws.organization?.setupStatus ?? "";
-  const inviteGoverned = invitationNeedsRequest(role, setupStatus, setupStatus === "INITIALIZING" ? "OWNER" : null);
+  const inviteGoverned = invitationNeedsRequest(role, setupStatus, setupStatus === "INITIALIZING" ? callerRole : null);
+  // The server enforces this too; the UI only hides actions the caller cannot take.
+  const canManage = callerRole === "OWNER" || callerRole === "ADMIN";
 
   async function invite(event: FormEvent) {
     event.preventDefault();
@@ -166,11 +170,13 @@ export default function MembersPage() {
                   <td data-label="Status"><span className={`${styles.badge} ${m.status === "ACTIVE" ? styles.active : styles.suspended}`}>{m.status}</span></td>
                   <td data-label="Joined">{fmt(m.joinedAt)}</td>
                   <td className={styles.actions}>
-                    <button type="button" onClick={() => setEditing({ member: m, action: "role", role: m.role === "MEMBER" ? "AUDITOR" : "MEMBER", reason: "" })}>Change role</button>
-                    {m.status === "ACTIVE"
-                      ? <button type="button" onClick={() => setEditing({ member: m, action: "suspend", role: m.role, reason: "" })}>Suspend</button>
-                      : <button type="button" onClick={() => setEditing({ member: m, action: "reactivate", role: m.role, reason: "" })}>Reactivate</button>}
-                    <button type="button" className={styles.danger} onClick={() => setEditing({ member: m, action: "remove", role: m.role, reason: "" })}>Remove</button>
+                    {canManage ? <>
+                      <button type="button" onClick={() => setEditing({ member: m, action: "role", role: m.role === "MEMBER" ? "AUDITOR" : "MEMBER", reason: "" })}>Change role</button>
+                      {m.status === "ACTIVE"
+                        ? <button type="button" onClick={() => setEditing({ member: m, action: "suspend", role: m.role, reason: "" })}>Suspend</button>
+                        : <button type="button" onClick={() => setEditing({ member: m, action: "reactivate", role: m.role, reason: "" })}>Reactivate</button>}
+                      <button type="button" className={styles.danger} onClick={() => setEditing({ member: m, action: "remove", role: m.role, reason: "" })}>Remove</button>
+                    </> : <span className={styles.muted}>Owners/admins only</span>}
                   </td>
                 </tr>
               ))}
@@ -207,7 +213,8 @@ export default function MembersPage() {
 
       <section className={styles.card} aria-labelledby="inv-h">
         <h2 id="inv-h">Invitations</h2>
-        <form className={styles.form} onSubmit={invite}>
+        {!canManage && <p className={styles.muted}>Only owners and admins can send or revoke invitations.</p>}
+        <form className={styles.form} onSubmit={invite} hidden={!canManage}>
           <div className={styles.row}>
             <label className={styles.field}>Email
               <input type="email" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="off" />

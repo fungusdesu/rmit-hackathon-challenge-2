@@ -47,14 +47,14 @@ export function useGovernanceData(orgId: string | null) {
     try {
       const [r, m, p, s] = await Promise.all([
         api<{ requests: FullRequest[]; enforcement?: string }>(`${orgPath(orgId)}/requests`),
-        api<{ members: Member[] }>(`${orgPath(orgId)}/members`),
+        api<{ members: Member[]; currentMember?: { id: string } }>(`${orgPath(orgId)}/members`),
         api<{ policies: Policy[] }>(`${orgPath(orgId)}/policies`).catch(() => ({ policies: [] as Policy[] })),
         api<{ principal: { email: string | null; displayName: string } }>("/api/auth/session"),
       ]);
       setRequests(r.requests); if (r.enforcement) setEnforcement(r.enforcement);
       setMembers(m.members); setPolicies(p.policies);
       const email = s.principal.email?.toLowerCase();
-      setMe(m.members.find(x => email && x.user.email?.toLowerCase() === email) ?? m.members.find(x => x.user.displayName === s.principal.displayName) ?? null);
+      setMe(m.members.find(x => x.id === m.currentMember?.id) ?? m.members.find(x => email && x.user.email?.toLowerCase() === email) ?? null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load requests.");
     } finally { setLoading(false); }
