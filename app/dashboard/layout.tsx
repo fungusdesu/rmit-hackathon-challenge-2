@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icon, { type IconName } from "../components/ui-icon";
 import { useSessionPrincipal } from "./use-workspace";
+import DevUserSwitcher from "./dev-user-switcher";
 
 const navigation: { label: string; href: string; icon: IconName; preview?: boolean }[] = [
   { label: "Overview", href: "/dashboard", icon: "overview" },
@@ -37,7 +38,7 @@ export default function DashboardLayout({ children }: Readonly<{ children: React
         </nav>
         <div className="sidebar-bottom"><div className="integration-status"><span className="pulse-dot" aria-hidden="true" /><span><small>Enforcement</small><strong>App-level only</strong></span></div><div className="user-chip"><span>{initials}</span><div><strong>{principal?.displayName ?? "Not signed in"}</strong><small>{principal ? `${principal.email ?? principal.subject}${principal.source === "development" ? " · dev mode" : ""}` : "Sign in to see your identity"}</small></div></div></div>
       </aside>
-      <div className="dashboard-main"><header className="dashboard-header"><Link className="mobile-brand" href="/dashboard"><span className="brand-mark" aria-hidden="true"><span /><span /></span>BusinessVault</Link><div className="breadcrumb"><span>Workspace</span><b>/</b><strong>{current}</strong></div><nav className="dashboard-mobile-nav" aria-label="Mobile workspace navigation">{navigation.map(item => <Link href={item.href} key={item.href} ref={pathname === item.href ? activeMobileLink : undefined} aria-current={pathname === item.href ? "page" : undefined}>{item.label}</Link>)}</nav></header>{children}</div>
+      <div className="dashboard-main"><header className="dashboard-header"><Link className="mobile-brand" href="/dashboard"><span className="brand-mark" aria-hidden="true"><span /><span /></span>BusinessVault</Link><div className="breadcrumb"><span>Workspace</span><b>/</b><strong>{current}</strong></div><nav className="dashboard-mobile-nav" aria-label="Mobile workspace navigation">{navigation.map(item => <Link href={item.href} key={item.href} ref={pathname === item.href ? activeMobileLink : undefined} aria-current={pathname === item.href ? "page" : undefined}>{item.label}</Link>)}</nav><DevUserSwitcher /></header>{children}</div>
     </div>
   );
 }

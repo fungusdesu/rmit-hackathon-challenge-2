@@ -34,15 +34,20 @@ function developmentPrincipal(request: NextRequest): Principal {
     throw new AuthConfigurationError("Development authentication requires ALLOW_INSECURE_DEV_AUTH=true");
   }
 
-  const subject = request.headers.get("x-dev-user-subject") ?? process.env.DEV_AUTH_SUBJECT;
+  // Development only: headers win, then the dashboard's "Acting as" cookies, then env defaults.
+  const cookie = (name: string) => {
+    const value = request.cookies.get(name)?.value;
+    try { return value ? decodeURIComponent(value) : undefined; } catch { return undefined; }
+  };
+  const subject = request.headers.get("x-dev-user-subject") ?? cookie("bv-dev-subject") ?? process.env.DEV_AUTH_SUBJECT;
   if (!subject) {
     throw new AuthenticationError("Set DEV_AUTH_SUBJECT or send x-dev-user-subject for local development");
   }
 
   return {
     subject,
-    displayName: request.headers.get("x-dev-user-name") ?? process.env.DEV_AUTH_NAME ?? "Development User",
-    email: request.headers.get("x-dev-user-email") ?? process.env.DEV_AUTH_EMAIL ?? null,
+    displayName: request.headers.get("x-dev-user-name") ?? cookie("bv-dev-name") ?? process.env.DEV_AUTH_NAME ?? "Development User",
+    email: request.headers.get("x-dev-user-email") ?? cookie("bv-dev-email") ?? process.env.DEV_AUTH_EMAIL ?? null,
     emailVerified: request.headers.get("x-dev-user-email-verified") !== "false",
     source: "development",
   };

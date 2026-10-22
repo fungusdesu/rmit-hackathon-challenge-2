@@ -17,7 +17,8 @@
     "test:governance": "node --test tests/governance/*.mjs",
     "doctor": "node scripts/dev/doctor.mjs",
     "test:all": "vitest run",
-    "test:it": "node scripts/dev/run-it.mjs"
+    "test:it": "node scripts/dev/run-it.mjs",
+    "seed:demo": "node scripts/dev/seed-demo.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1155.0",
