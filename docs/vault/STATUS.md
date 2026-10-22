@@ -13,7 +13,7 @@ Updated 2026-10-22. Status values: **VERIFIED** (automated test or live run), **
 | Object keys are unpredictable | VERIFIED | `v1/` + 256-bit random base64url; `tests/vault/storage/keys.test.ts` (10k uniqueness), `object-keys.test.ts` (no org/user ids); `objectKey` is never returned by the API |
 | Upload/download routes are organization-scoped | VERIFIED | All routes live under `/api/organizations/:organizationId/documents`; every query is scoped by `organizationId` plus ACTIVE membership |
 | File size and content-type limits enforced server-side | VERIFIED | `limits.test.ts`: 413 / 415 / 400 at upload-init; presigned POST `content-length-range` rejects oversize bodies (`s3.integration.test.ts`); commit re-checks size and SHA-256 → 422 and the object is deleted |
-| E2EE roles and tag behaviour tested against the real Tide realm | **BLOCKED** | See `TIDE_E2EE_VERIFICATION.md`. Realm provisioning fails at Tide's network licence step (`TIDE-IDPEXT-VENDOR-KEYGEN_FAILED`, ORK timeout / HTTP 500) on every attempt today |
+| E2EE roles and tag behaviour tested against the real Tide realm | **PARTIAL** | Realm `bv9` provisioned with the vault roles/tag, admin enrolled, Tide-mode auth boundary verified (3/3). A live encrypt/decrypt round trip and cross-user/no-role tests were blocked by Tide network signing errors and time. See `TIDE_E2EE_VERIFICATION.md` |
 | Large-file handling deferred unless key wrapping is reviewed | DEFERRED (as required) | 5 MiB default cap, 10 MiB hard cap; no envelope encryption |
 
 ## Components
