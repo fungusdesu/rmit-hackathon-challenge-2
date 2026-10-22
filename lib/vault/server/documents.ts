@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { DocumentStatus, MembershipRole, type Document, type Membership, type User } from "@prisma/client";
 import type { Principal } from "@/lib/auth/types";
-import { appendAudit } from "@/lib/approvals";
+import { appendAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { getMembership, getOrCreateUser } from "@/lib/organizations";
 import { getObjectStorage } from "@/lib/storage";

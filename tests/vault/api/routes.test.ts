@@ -29,7 +29,7 @@ const getDoc = await import("@/app/api/organizations/[organizationId]/documents/
 
 const who = (): Principal => {
   const subject = `vault-route-${randomUUID()}`;
-  return { subject, displayName: subject.slice(0, 20), email: null, source: "development" };
+  return { subject, displayName: subject.slice(0, 20), email: null, emailVerified: false, source: "development" };
 };
 
 function req(body?: string) {

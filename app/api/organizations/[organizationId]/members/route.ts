@@ -4,6 +4,8 @@ import { authErrorResponse } from "@/lib/auth/errors";
 import { requirePrincipal } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { getMembership } from "@/lib/organizations";
+import { createInvitation, parseInvitation } from "@/lib/invitations";
+import { governanceErrorResponse } from "@/lib/governance-error";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ organizationId: string }> }) {
   try {
@@ -13,10 +15,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ org
     if (!membership) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
     const members = await db.membership.findMany({
-      where: { organizationId, status: MembershipStatus.ACTIVE },
+      where: { organizationId, status: membership.role === MembershipRole.OWNER || membership.role === MembershipRole.ADMIN ? { in: [MembershipStatus.ACTIVE, MembershipStatus.SUSPENDED] } : MembershipStatus.ACTIVE },
       select: {
         id: true,
         role: true,
+        status: true,
         joinedAt: true,
         user: { select: { id: true, displayName: true, email: true } },
       },
@@ -33,16 +36,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ or
   try {
     const principal = await requirePrincipal(request);
     const { organizationId } = await context.params;
-    const requester = await getMembership(organizationId, principal);
-    if (!requester || (requester.role !== MembershipRole.OWNER && requester.role !== MembershipRole.ADMIN)) {
-      return NextResponse.json({ error: "forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "not_implemented", message: "Invitations will be added with token hashing and expiry handling." },
-      { status: 501 },
-    );
+    const issued = await createInvitation(organizationId, principal, parseInvitation(await request.json()));
+    return NextResponse.json({ invitation: issued.invitation, acceptanceUrl: `${request.nextUrl.origin}/invitations/accept#token=${issued.token}` }, { status: 201 });
   } catch (error) {
-    return authErrorResponse(error) ?? NextResponse.json({ error: "internal_error" }, { status: 500 });
+    return governanceErrorResponse(error);
   }
 }

@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:vault": "vitest run tests/vault",
     "test:e2e": "playwright test",
-    "vault:leak-scan": "node --experimental-strip-types scripts/vault/leak-scan.ts"
+    "vault:leak-scan": "node --experimental-strip-types scripts/vault/leak-scan.ts",
+    "test:governance": "node --test tests/governance/*.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1155.0",

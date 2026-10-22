@@ -252,6 +252,7 @@ model AuditEvent {
   occurredAt     DateTime     @default(now())
   previousEventHash String?
   eventHash      String
+  hashVersion    Int          @default(1)
   externalAnchorRef String?
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   actor          User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)

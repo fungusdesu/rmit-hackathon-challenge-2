@@ -14,7 +14,7 @@ import { resetDownloadMonitorForTests } from "@/lib/vault/server/download-monito
 
 function principal(): Principal {
   const subject = `vault-test-${randomUUID()}`;
-  return { subject, displayName: subject.slice(0, 20), email: null, source: "development" };
+  return { subject, displayName: subject.slice(0, 20), email: null, emailVerified: false, source: "development" };
 }
 
 async function expectCode(promise: Promise<unknown>, code: string) {

@@ -1,5 +1,5 @@
 import { DocumentStatus } from "@prisma/client";
-import { appendAudit } from "@/lib/approvals";
+import { appendAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { getObjectStorage } from "@/lib/storage";
 

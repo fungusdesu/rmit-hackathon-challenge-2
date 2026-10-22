@@ -4,7 +4,7 @@ import { VAULT_RATE_LIMIT_PER_MINUTE, VaultError } from "@/lib/vault/contracts";
 import { DOWNLOAD_ANOMALY_THRESHOLD, recordDownload, resetDownloadMonitorForTests } from "@/lib/vault/server/download-monitor";
 import { enforceRateLimit, pruneRateLimits, rateLimitBucketCountForTests, resetRateLimitsForTests } from "@/lib/vault/server/rate-limit";
 
-const who = (subject: string): Principal => ({ subject, displayName: subject, email: null, source: "development" });
+const who = (subject: string): Principal => ({ subject, displayName: subject, email: null, emailVerified: false, source: "development" });
 
 describe("rate limiter", () => {
   beforeEach(() => resetRateLimitsForTests());
