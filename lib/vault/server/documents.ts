@@ -146,6 +146,7 @@ export async function commitUpload(organizationId: string, principal: Principal,
   const membership = await requireMember(organizationId, principal);
   const doc = await findVisible(organizationId, membership, documentId);
   if (doc.ownerId !== membership.userId) throw new VaultError("forbidden");
+  enforceRateLimit(principal, "commit");
   if (doc.status !== DocumentStatus.PENDING_UPLOAD || !doc.uploadExpiresAt || doc.uploadExpiresAt.getTime() <= Date.now()) {
     throw new VaultError("invalid_state");
   }

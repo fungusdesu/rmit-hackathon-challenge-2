@@ -237,6 +237,13 @@ describe.skipIf(process.env.VAULT_IT !== "1")("vault documents service", () => {
     }
   });
 
+  it("F-03: rate limits commit", async () => {
+    const { init } = await uploadAs(p.member2);
+    resetRateLimitsForTests();
+    for (let i = 0; i < VAULT_RATE_LIMIT_PER_MINUTE; i++) await expectCode(commitUpload(orgId, p.member2, init.document.id), "invalid_state");
+    await expectCode(commitUpload(orgId, p.member2, init.document.id), "rate_limited");
+  });
+
   it("rate limits download", async () => {
     const { committed } = await uploadAndCommit(p.member);
     for (let i = 0; i < VAULT_RATE_LIMIT_PER_MINUTE; i++) await issueDownload(orgId, p.member, committed.id);
