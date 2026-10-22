@@ -237,6 +237,28 @@ describe.skipIf(process.env.VAULT_IT !== "1")("vault documents service", () => {
     }
   });
 
+  it("F-04: demo-format docs are hidden outside development auth mode", async () => {
+    const previous = process.env.AUTH_MODE;
+    process.env.AUTH_MODE = "development";
+    try {
+      const bytes = new Uint8Array([5, 6, 7, 8]);
+      const init = await initUpload(orgId, p.owner, request(bytes, { ciphertextFormat: "demo-not-e2ee-v1" }));
+      const doc = await db.document.findUniqueOrThrow({ where: { id: init.document.id } });
+      storage.putObject(doc.objectKey, bytes, "application/octet-stream");
+      await commitUpload(orgId, p.owner, doc.id);
+      expect((await listDocuments(orgId, p.owner)).some((d) => d.id === doc.id)).toBe(true);
+      expect((await getDocument(orgId, p.owner, doc.id)).id).toBe(doc.id);
+
+      process.env.AUTH_MODE = "tide";
+      expect((await listDocuments(orgId, p.owner)).some((d) => d.id === doc.id)).toBe(false);
+      await expectCode(getDocument(orgId, p.owner, doc.id), "not_found");
+      await expectCode(issueDownload(orgId, p.owner, doc.id), "not_found");
+    } finally {
+      if (previous === undefined) delete process.env.AUTH_MODE;
+      else process.env.AUTH_MODE = previous;
+    }
+  });
+
   it("F-03: rate limits commit", async () => {
     const { init } = await uploadAs(p.member2);
     resetRateLimitsForTests();

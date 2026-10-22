@@ -7,6 +7,7 @@ import { getMembership, getOrCreateUser } from "@/lib/organizations";
 import { getObjectStorage } from "@/lib/storage";
 import {
   CIPHERTEXT_OBJECT_CONTENT_TYPE,
+  DEMO_CIPHERTEXT_FORMAT,
   PENDING_UPLOAD_TTL_SECONDS,
   PRESIGNED_DOWNLOAD_TTL_SECONDS,
   PRESIGNED_UPLOAD_TTL_SECONDS,
@@ -58,13 +59,19 @@ export async function requireMember(organizationId: string, principal: Principal
   return membership;
 }
 
-const ownerInclude = { owner: { select: { displayName: true } } } as const;
+// F-04: demo (non-E2EE) documents are only ever served in development auth mode.
+function demoFormatAllowed() {
+  return process.env.AUTH_MODE === "development";
+}
+
+const ownerInclude ={ owner: { select: { displayName: true } } } as const;
 
 async function findVisible(organizationId: string, membership: Membership, documentId: string): Promise<DocumentWithOwner> {
   assertVaultIds(documentId);
   const doc = await db.document.findFirst({ where: { id: documentId, organizationId }, include: ownerInclude });
   if (!doc) throw new VaultError("not_found");
   if (doc.status === DocumentStatus.REJECTED) throw new VaultError("not_found");
+  if (!demoFormatAllowed() && doc.ciphertextFormat === DEMO_CIPHERTEXT_FORMAT) throw new VaultError("not_found");
   if (doc.status === DocumentStatus.PENDING_UPLOAD && doc.ownerId !== membership.userId) throw new VaultError("not_found");
   return doc;
 }
@@ -74,6 +81,7 @@ export async function listDocuments(organizationId: string, principal: Principal
   const docs = await db.document.findMany({
     where: {
       organizationId,
+      ...(demoFormatAllowed() ? {} : { ciphertextFormat: { not: DEMO_CIPHERTEXT_FORMAT } }),
       OR: [{ status: DocumentStatus.AVAILABLE }, { status: DocumentStatus.PENDING_UPLOAD, ownerId: membership.userId }],
     },
     include: ownerInclude,
