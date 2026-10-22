@@ -5,6 +5,13 @@ import { createHash, randomUUID } from "node:crypto";
 import { DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { PrismaClient } from "@prisma/client";
 
+// Same key ordering as lib/audit.ts so hashVersion 2 rows verify (path aliases don't resolve under strip-types).
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => [key, canonicalize(entry)]));
+  return value;
+}
+
 const args = process.argv.slice(2);
 const limitIdx = args.indexOf("--limit");
 const limit = limitIdx >= 0 ? Number(args[limitIdx + 1]) : 100;
@@ -43,13 +50,15 @@ async function main() {
       const target = doc.id;
       const actorId = null;
       const eventJson = { documentId: doc.id, size: doc.size, classification: doc.classification, ciphertextFormat: doc.ciphertextFormat };
-      const previous = await tx.auditEvent.findFirst({ where: { organizationId }, orderBy: { occurredAt: "desc" }, select: { eventHash: true } });
-      const occurredAt = new Date();
+      // Mirrors lib/audit.ts appendAudit (hashVersion 2): org row lock, ordered chain head, monotonic time, canonical hash.
+      await tx.$executeRaw`UPDATE "Organization" SET "updatedAt" = "updatedAt" WHERE id = ${organizationId}`;
+      const previous = await tx.auditEvent.findFirst({ where: { organizationId }, orderBy: [{ occurredAt: "desc" }, { id: "desc" }], select: { eventHash: true, occurredAt: true } });
+      const occurredAt = new Date(Math.max(Date.now(), previous ? previous.occurredAt.getTime() + 1 : 0));
       const eventHash = createHash("sha256")
-        .update(JSON.stringify({ organizationId, actorId, action, target, eventJson, occurredAt: occurredAt.toISOString(), previous: previous?.eventHash ?? null }))
+        .update(JSON.stringify(canonicalize({ organizationId, actorId, action, target, eventJson, occurredAt: occurredAt.toISOString(), previous: previous?.eventHash ?? null })))
         .digest("hex");
       await tx.auditEvent.create({
-        data: { organizationId, actorId, action, target, correlationId: randomUUID(), eventJson, occurredAt, previousEventHash: previous?.eventHash, eventHash },
+        data: { organizationId, actorId, action, target, correlationId: randomUUID(), eventJson, occurredAt, previousEventHash: previous?.eventHash, eventHash, hashVersion: 2 },
       });
       return true;
     });
