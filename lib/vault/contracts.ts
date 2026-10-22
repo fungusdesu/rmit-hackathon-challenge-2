@@ -91,6 +91,7 @@ export const VAULT_ERRORS = {
   integrity_mismatch: 422,
   rate_limited: 429,
   internal_error: 500,
+  authentication_not_configured: 503,
   storage_unavailable: 503,
 } as const;
 export type VaultErrorCode = keyof typeof VAULT_ERRORS;

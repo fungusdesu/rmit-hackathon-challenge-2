@@ -19,7 +19,7 @@ import {
   type UploadInitRequest,
   type UploadInitResponse,
 } from "@/lib/vault/contracts";
-import { generateObjectKey } from "./object-key";
+import { generateObjectKey } from "@/lib/storage/keys";
 import { enforceRateLimit } from "./rate-limit";
 
 type DocumentWithOwner = Document & { owner: Pick<User, "displayName"> };
