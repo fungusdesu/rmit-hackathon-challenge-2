@@ -7,7 +7,7 @@ Source handoff: `PEER_HANDOFF_VAULT.md` (gitignored). Spec: `BUSINESSVAULT_CODEX
 
 | Topic | Decision |
 |---|---|
-| Tide realm | Local `tideorg/tidecloak-dev` on `:8080`, realm `nextjs-test`, client `myclient`. The user does the browser enrollment, licence and QEA approval steps. |
+| Tide realm | Local `tideorg/tidecloak-dev` on `:8080`, realm `nextjs-test` (provisioning failed at Tide's licence step; realm `bv9` was the first to succeed, see `TIDE_E2EE_VERIFICATION.md`), client `myclient`. The enrolled `admin` user plays "alice". The user does the browser enrollment, licence and QEA approval steps. |
 | Sharing model | **Uploader-only decrypt** unless the realm test proves otherwise. Shared org decrypt is documented as BLOCKED on Forseti policy-protected encryption (SDK docs say "coming soon"). |
 | Schema | One **additive** migration on `Document`: a new enum and new nullable/defaulted columns, no renames or drops. Teammates are told before merge. |
 | Git | `feat/vault` branch. Each agent works in its own worktree branch and the main session merges them. `origin/main` is merged in regularly. Nothing is pushed without the user's OK. |
@@ -26,7 +26,7 @@ Source handoff: `PEER_HANDOFF_VAULT.md` (gitignored). Spec: `BUSINESSVAULT_CODEX
 ## 2. Data flow
 
 **Upload** (plaintext never leaves the browser):
-1. The browser reads the file into a `Uint8Array`, calls `doEncrypt([{data: bytes, tags:["vault"]}, {data: filename, tags:["vault"]}])` and normalises the result to bytes.
+1. The browser reads the file into a `Uint8Array`, encrypts the bytes and the filename with two separate `doEncrypt` calls (tag `vault`) and normalises the result to bytes.
 2. The browser computes **SHA-256 of the ciphertext** with WebCrypto. It never hashes the plaintext, because that would allow equality and dictionary checks.
 3. `POST /documents/upload-init` sends metadata only. The server validates it, creates a `Document` row with `status=PENDING_UPLOAD` and a random `objectKey`, and returns a **presigned POST**. The POST policy fixes `key`, `Content-Type=application/octet-stream` and `content-length-range`.
 4. The browser POSTs the ciphertext directly to MinIO.
@@ -131,7 +131,7 @@ The server re-checks membership on every call. React role checks are cosmetic on
 - No `console.log` of request bodies, presigned URLs or object keys. Errors return fixed codes.
 - No query-string parameters carry document data. Download URL issuance is a POST with `Cache-Control: no-store`.
 - No analytics SDK exists. A test asserts that none is added to the vault pages.
-- `scripts/vault/leak-scan.ts <canary>` greps a `pg_dump`, every object in the bucket, and the app container logs for a canary string and its base64/hex forms. It exits non-zero on a hit. It is run after a live upload of a file containing the canary.
+- `scripts/vault/leak-scan.ts <canary>` greps a `pg_dump`, every object in the bucket, and the app container logs (`docker compose logs app`, or a dev-server log passed with `--log-file`) for a canary string and its base64/hex forms. It exits non-zero on a hit. It is run after a live upload of a file containing the canary.
 
 ## 10. Work breakdown
 
