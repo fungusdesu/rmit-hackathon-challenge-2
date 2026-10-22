@@ -20,6 +20,21 @@ The default local credentials are intentionally development-only and are defined
 `compose.yaml`. Never expose this Compose stack to the public Internet or reuse these
 credentials outside local development.
 
+If PostgreSQL exits with `could not change permissions ... Operation not permitted`,
+check `docker info --format '{{.DockerRootDir}}'`. Docker volumes stored on a Windows
+drive (for example, `/mnt/d/...`) may not support the Linux permissions PostgreSQL
+requires. Use a directory on a Linux filesystem instead:
+
+```bash
+mkdir -p "$HOME/.local/share/businessvault/postgres"
+printf '\nPOSTGRES_DATA_DIR=%s\n' "$HOME/.local/share/businessvault/postgres" >> .env
+docker compose up --build -d
+```
+
+This starts a separate database and preserves the old Docker volume. If an existing
+database contains data, migrate it before switching directories. With this override,
+database files persist in `POSTGRES_DATA_DIR`, including after `docker compose down -v`.
+
 ## Database development
 
 The Prisma schema is in `prisma/schema.prisma`. After the PostgreSQL service is running,
@@ -127,7 +142,7 @@ Stop the stack:
 docker compose down
 ```
 
-Remove local database and object-storage data:
+Remove data stored in Compose-managed volumes (a custom `POSTGRES_DATA_DIR` is retained):
 
 ```bash
 docker compose down -v

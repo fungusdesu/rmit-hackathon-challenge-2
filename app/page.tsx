@@ -1,3 +1,5 @@
+import HeroScene from "./components/hero-scene";
+
 export default function Home() {
   return (
     <div className="site-shell">
@@ -37,48 +39,7 @@ export default function Home() {
             <p className="microcopy"><span className="lock-icon" aria-hidden="true">▣</span> Built for owner-led companies and security-conscious teams</p>
           </div>
 
-          <div className="hero-visual" aria-label="Approval request product preview">
-            <div className="visual-glow" />
-            <div className="console-window">
-              <div className="console-topline">
-                <div className="window-dots"><i /><i /><i /></div>
-                <span className="console-label">BUSINESSVAULT / APPROVALS</span>
-                <span className="secure-label"><span className="pulse-dot" /> Secure session</span>
-              </div>
-              <div className="console-body">
-                <div className="console-sidebar">
-                  <div className="mini-logo"><span className="brand-mark" aria-hidden="true"><span /><span /></span></div>
-                  <span className="side-line active" />
-                  <span className="side-line" />
-                  <span className="side-line" />
-                  <span className="side-line short" />
-                  <span className="side-line" />
-                </div>
-                <div className="approval-content">
-                  <div className="approval-heading">
-                    <div>
-                      <span className="overline">Action request</span>
-                      <h2>Transfer organization ownership</h2>
-                    </div>
-                    <span className="status-tag"><span className="status-dot" /> Awaiting quorum</span>
-                  </div>
-                  <div className="request-meta">
-                    <div><span>Requested by</span><strong>Alex Morgan</strong></div>
-                    <div><span>Expires in</span><strong>18h 42m</strong></div>
-                    <div><span>Policy</span><strong>3 of 5 owners</strong></div>
-                  </div>
-                  <div className="approval-divider" />
-                  <div className="approver-row">
-                    <div className="avatars"><span>AM</span><span>JL</span><span>RK</span><span className="avatar-empty">+2</span></div>
-                    <div className="approval-count"><strong>2 / 3</strong><span>approvals received</span></div>
-                  </div>
-                  <div className="progress-track"><span /></div>
-                  <div className="console-footer"><span>Payload locked · SHA-256 verified</span><span className="view-request">View request <b>→</b></span></div>
-                </div>
-              </div>
-            </div>
-            <div className="floating-note"><span className="check-mark">✓</span><span><strong>Policy enforced</strong><small>Parameters cannot change after approval</small></span></div>
-          </div>
+          <HeroScene />
         </section>
 
         <section className="proof-strip" aria-label="Security principles">
