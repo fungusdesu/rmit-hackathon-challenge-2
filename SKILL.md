@@ -208,6 +208,8 @@ Completed:
 - Verified `@tidecloak/nextjs@0.14.40` APIs wired for provider, proxy, and server token validation
 - Tide public build arguments separated from runtime server configuration
 - Local TideCloak `nextjs-test` realm provisioned with QEA and `myclient` adapter
+- Full Tide adapter JSON support added for server and client configuration
+- Tide logout route added at `/auth/logout`
 - README and environment defaults added
 
 Not completed:
@@ -316,4 +318,13 @@ The next implementation slice is:
 - Generated the ignored adapter at `tidecloak-setup/tidecloak.json`.
 - Added ignored `.env.local` values for BusinessVault live Tide testing.
 - Verified the live Tide proxy rejects an unauthenticated API request with `401`.
-- Learned that Docker Compose's app container still uses the development auth profile by default; live Tide testing currently runs the BusinessVault server directly with `npm run dev` so both server and browser resolve TideCloak through `localhost:8080`.
+- Learned that Docker Compose needs a shared issuer hostname; `tidecloak.localhost` is browser-resolvable and is mapped to the host gateway in Compose.
+
+### 2026-10-22: Tide runtime hardening
+
+- Wrapped SDK verification failures so malformed or invalid token errors return authentication failure rather than an internal server error.
+- Verified Tide realm discovery returns HTTP `200`.
+- Verified Tide-mode `/auth/login` and `/auth/logout` routes load.
+- Verified missing-token and malformed-bearer requests return HTTP `401`.
+- Added support for the generated full Tide adapter JSON without committing it.
+- Resolved Docker-to-host issuer networking with the shared `tidecloak.localhost` hostname, avoiding an issuer mismatch.

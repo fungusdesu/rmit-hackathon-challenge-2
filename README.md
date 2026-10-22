@@ -124,6 +124,10 @@ proxy and independently verifies the access token at the API boundary. No Tide r
 credentials are stored in this repository. Forseti authorization and Tide E2EE document
 encryption remain pending real realm capability testing.
 
+Docker Compose uses `tidecloak.localhost` for Tide issuer consistency. Browsers resolve
+`.localhost` to the local machine, while Compose maps that hostname to the host gateway.
+This keeps the issuer identical inside and outside Docker.
+
 The local realm initializer generated an ignored `.env.local` with the verified development
 realm values. Start the app outside Docker for the first live login test so both the browser
 and the server can reach TideCloak at `localhost:8080`:
@@ -135,6 +139,10 @@ npm run dev
 Then open `http://localhost:3000/auth/login`. The generated `tidecloak-setup/` directory
 and `tidecloak-data/` directory are intentionally ignored because the adapter and local
 realm state should not be committed.
+
+For full native Tide operations such as E2EE, provide the generated adapter JSON through
+the ignored `TIDECLOAK_ADAPTER_JSON` and `NEXT_PUBLIC_TIDECLOAK_ADAPTER_JSON` variables.
+Do not commit those values.
 
 Stop the stack:
 
