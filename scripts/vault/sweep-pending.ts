@@ -62,7 +62,27 @@ async function main() {
       storageErrors += 1;
     }
   }
-  console.log(`swept=${swept} storageErrors=${storageErrors}`);
+  // F-02: final delete of rejected docs' upload keys once the presigned policy (120 s + 60 s skew) is dead.
+  const policyDeadBefore = new Date(now.getTime() - 180_000);
+  const rejected = await db.document.findMany({
+    where: { status: "REJECTED", uploadExpiresAt: { not: null }, createdAt: { lt: policyDeadBefore } },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+    select: { id: true, objectKey: true },
+  });
+  let rejectedCleaned = 0;
+  for (const doc of rejected) {
+    try {
+      if (!s3) throw new Error("storage not configured");
+      await s3.send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: doc.objectKey }));
+    } catch {
+      storageErrors += 1;
+      continue;
+    }
+    await db.document.updateMany({ where: { id: doc.id, status: "REJECTED" }, data: { uploadExpiresAt: null } });
+    rejectedCleaned += 1;
+  }
+  console.log(`swept=${swept} rejectedCleaned=${rejectedCleaned} storageErrors=${storageErrors}`);
 }
 
 main()

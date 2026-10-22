@@ -3,7 +3,9 @@ import { appendAudit } from "@/lib/approvals";
 import { db } from "@/lib/db";
 import { getObjectStorage } from "@/lib/storage";
 
-export type SweepResult = { swept: number; storageErrors: number };
+import { PRESIGNED_UPLOAD_TTL_SECONDS } from "@/lib/vault/contracts";
+
+export type SweepResult = { swept: number; storageErrors: number; rejectedCleaned: number };
 
 // Rejects PENDING_UPLOAD documents whose upload window has passed and removes their objects.
 // Each document is claimed atomically, so concurrent sweepers never double-process one.
@@ -39,8 +41,32 @@ export async function sweepExpiredUploads({ now = new Date(), limit = 100 }: { n
       storageErrors += 1;
     }
   }
-  return { swept, storageErrors };
+
+  // F-02: after an integrity reject the still-valid upload policy can re-create the object (orphan).
+  // Once the policy has certainly expired, delete the key one final time and clear uploadExpiresAt
+  // as the "cleaned" marker so each rejected doc is handled once (retried on storage error).
+  const policyDeadBefore = new Date(now.getTime() - (PRESIGNED_UPLOAD_TTL_SECONDS + POLICY_SKEW_SECONDS) * 1000);
+  const rejected = await db.document.findMany({
+    where: { status: DocumentStatus.REJECTED, uploadExpiresAt: { not: null }, createdAt: { lt: policyDeadBefore } },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+    select: { id: true, objectKey: true },
+  });
+  let rejectedCleaned = 0;
+  for (const doc of rejected) {
+    try {
+      await getObjectStorage().deleteObject(doc.objectKey);
+    } catch {
+      storageErrors += 1;
+      continue;
+    }
+    await db.document.updateMany({ where: { id: doc.id, status: DocumentStatus.REJECTED }, data: { uploadExpiresAt: null } });
+    rejectedCleaned += 1;
+  }
+  return { swept, storageErrors, rejectedCleaned };
 }
+
+const POLICY_SKEW_SECONDS = 60;
 
 const OPPORTUNISTIC_INTERVAL_MS = 60_000;
 let lastOpportunisticSweep = 0;

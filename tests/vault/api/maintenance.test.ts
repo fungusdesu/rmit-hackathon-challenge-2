@@ -34,7 +34,7 @@ describe.skipIf(process.env.VAULT_IT !== "1")("pending-upload sweeper", () => {
     await db.$disconnect();
   });
 
-  async function makeDoc(expiresInMs: number, status: DocumentStatus = DocumentStatus.PENDING_UPLOAD) {
+  async function makeDoc(expiresInMs: number, status: DocumentStatus = DocumentStatus.PENDING_UPLOAD, createdAt = new Date()) {
     const objectKey = `test/${randomUUID()}`;
     storage.putObject(objectKey, new Uint8Array([1, 2, 3]));
     return db.document.create({
@@ -52,6 +52,7 @@ describe.skipIf(process.env.VAULT_IT !== "1")("pending-upload sweeper", () => {
         version: 1,
         status,
         uploadExpiresAt: new Date(Date.now() + expiresInMs),
+        createdAt,
       },
     });
   }
@@ -90,7 +91,6 @@ describe.skipIf(process.env.VAULT_IT !== "1")("pending-upload sweeper", () => {
     const expired = await makeDoc(-60_000);
     const result = await sweepExpiredUploads();
     expect(result.storageErrors).toBeGreaterThanOrEqual(1);
-    expect(result.storageErrors).toBeLessThanOrEqual(result.swept);
     expect((await db.document.findUniqueOrThrow({ where: { id: expired.id } })).status).toBe("REJECTED");
   });
 
@@ -100,6 +100,20 @@ describe.skipIf(process.env.VAULT_IT !== "1")("pending-upload sweeper", () => {
     const result = await sweepExpiredUploads();
     expect(result.storageErrors).toBe(0);
     expect((await db.document.findUniqueOrThrow({ where: { id: expired.id } })).status).toBe("REJECTED");
+  });
+
+  it("F-02: deletes orphaned objects of rejected docs once the policy has expired", async () => {
+    const old = await makeDoc(-60_000, DocumentStatus.REJECTED, new Date(Date.now() - 10 * 60_000));
+    const recent = await makeDoc(10 * 60_000, DocumentStatus.REJECTED);
+    const result = await sweepExpiredUploads();
+    expect(result.rejectedCleaned).toBeGreaterThanOrEqual(1);
+    expect(storage.has(old.objectKey)).toBe(false);
+    expect(storage.has(recent.objectKey)).toBe(true);
+    expect((await db.document.findUniqueOrThrow({ where: { id: old.id } })).uploadExpiresAt).toBeNull();
+    // Already cleaned: a re-created object is not tracked again (policy is dead, so it cannot be re-created).
+    storage.putObject(old.objectKey, new Uint8Array([1]));
+    await sweepExpiredUploads();
+    expect(storage.has(old.objectKey)).toBe(true);
   });
 
   it("respects limit", async () => {
