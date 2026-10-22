@@ -1,13 +1,82 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState, type FormEvent } from "react";
+import { apiJson, useWorkspace, type ActionRequest, type Summary } from "./use-workspace";
+import Icon from "../components/ui-icon";
 
 export default function DashboardPage() {
+  const workspace = useWorkspace();
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [requests, setRequests] = useState<ActionRequest[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!workspace.organizationId) return;
+    let active = true;
+    setDataLoading(true);
+    setDataError(null);
+    setSummary(null);
+    const base = `/api/organizations/${encodeURIComponent(workspace.organizationId)}`;
+    Promise.all([
+      apiJson<{ summary: Summary }>(`${base}/summary`),
+      apiJson<{ requests: ActionRequest[] }>(`${base}/requests`),
+    ]).then(([summaryData, requestData]) => {
+      if (!active) return;
+      setSummary(summaryData.summary);
+      setRequests(requestData.requests);
+    }).catch(cause => {
+      if (active) setDataError(cause instanceof Error ? cause.message : "Unable to load the overview.");
+    }).finally(() => { if (active) setDataLoading(false); });
+    return () => { active = false; };
+  }, [workspace.organizationId]);
+
+  async function create(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreating(true);
+    setFormError(null);
+    try {
+      await workspace.createOrganization(name.trim(), description.trim());
+      setName("");
+      setDescription("");
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : "Could not create the organization.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <main className="dashboard-content">
-      <div className="dashboard-intro"><div><span className="overline">Wednesday, October 22, 2026</span><h1>Good morning, Alex.</h1><p>Here is the security posture of Northstar Labs.</p></div><Link className="button button-small" href="#new-request">New request <span>+</span></Link></div>
-      <div className="demo-notice"><span className="notice-icon">!</span><p><strong>Preview environment</strong> TideCloak authentication and cryptographic action enforcement are not connected yet. This dashboard shows the intended product surface only.</p><Link href="/">Learn more <span>→</span></Link></div>
-      <section className="metric-grid" aria-label="Workspace summary"><article><div className="metric-top"><span>Pending approvals</span><span className="metric-icon">↗</span></div><strong>03</strong><small><b className="positive">+1</b> since yesterday</small></article><article><div className="metric-top"><span>Protected documents</span><span className="metric-icon">◇</span></div><strong>128</strong><small><b className="neutral">98.4%</b> encrypted coverage</small></article><article><div className="metric-top"><span>Active owners</span><span className="metric-icon">◎</span></div><strong>05</strong><small><b className="positive">Healthy</b> quorum available</small></article><article><div className="metric-top"><span>Security events</span><span className="metric-icon">⌁</span></div><strong>24</strong><small><b className="neutral">Last 30 days</b></small></article></section>
-      <div className="dashboard-columns"><section className="panel requests-panel"><div className="panel-heading"><div><span className="overline">Needs attention</span><h2>Pending approvals</h2></div><Link href="/dashboard/approvals">View all <span>→</span></Link></div><div className="request-list"><div className="request-item"><span className="request-type type-owner">↗</span><div className="request-copy"><strong>Transfer organization ownership</strong><span>Requested by Alex Morgan · 2 of 3 approvals</span></div><span className="request-risk">High risk</span><b className="request-arrow">→</b></div><div className="request-item"><span className="request-type type-vault">◇</span><div className="request-copy"><strong>Release customer contracts</strong><span>Requested by Jamie Lee · 1 of 2 approvals</span></div><span className="request-risk medium">Review</span><b className="request-arrow">→</b></div><div className="request-item"><span className="request-type type-infra">⌁</span><div className="request-copy"><strong>Rotate production deploy key</strong><span>Requested by Riley Kim · 2 of 2 approvals</span></div><span className="request-risk low">Ready</span><b className="request-arrow">→</b></div></div></section><section className="panel activity-panel"><div className="panel-heading"><div><span className="overline">Audit trail</span><h2>Recent activity</h2></div><Link href="/dashboard/audit">See audit log <span>→</span></Link></div><div className="activity-list"><div><span className="activity-dot green" /><p><strong>Approval recorded</strong><span>Jamie Lee approved ownership transfer</span></p><time>12m</time></div><div><span className="activity-dot blue" /><p><strong>Document added</strong><span>Q3 customer agreements uploaded</span></p><time>2h</time></div><div><span className="activity-dot amber" /><p><strong>Policy updated</strong><span>Owner quorum changed to 3 of 5</span></p><time>Yesterday</time></div><div><span className="activity-dot gray" /><p><strong>Member invited</strong><span>samira@northstar.dev invited as Auditor</span></p><time>Yesterday</time></div></div></section></div>
-      <section className="panel posture-panel"><div className="posture-copy"><span className="overline">Ownership health</span><h2>Your organization is protected by shared control.</h2><p>Five owners are active, all critical actions require quorum, and your most sensitive documents are encrypted.</p><Link className="text-link" href="/dashboard/settings">Review security settings <span>→</span></Link></div><div className="posture-visual"><div className="ring"><div><strong>84</strong><small>posture score</small></div></div><div className="posture-legend"><span><i className="legend-green" />Governance <b>Good</b></span><span><i className="legend-blue" />Encryption <b>Good</b></span><span><i className="legend-amber" />Recovery <b>Review</b></span></div></div></section>
+      <div className="dashboard-intro"><div><span className="overline">Workspace overview</span><h1>{workspace.organization ? workspace.organization.name : "Your workspace"}</h1><p>Organization activity and governance at a glance.</p></div></div>
+      <div className="demo-notice"><span className="notice-icon" aria-hidden="true">!</span><p><strong>APP-LEVEL APPROVAL ONLY</strong> The current owner-removal workflow uses application checks. Tide-backed action enforcement and encrypted document storage are not connected.</p></div>
+
+      {workspace.loading && <p className="workspace-state" role="status">Loading organizations…</p>}
+      {workspace.error && <div className="workspace-state workspace-error" role="alert"><p>{workspace.error}</p><button type="button" onClick={() => void workspace.refresh()}>Try again</button><Link href="/auth/login">Sign in</Link></div>}
+
+      {!workspace.loading && !workspace.error && workspace.organizations.length === 0 && (
+        <section className="panel workspace-empty"><span className="overline">Get started</span><h2>Create your first organization</h2><p>Your organization will appear here after creation. You can invite co-owners once the invitation flow is available.</p><form onSubmit={create} className="workspace-form"><label>Organization name<input required minLength={2} maxLength={120} value={name} onChange={event => setName(event.target.value)} placeholder="Example: Northstar Labs" /></label><label>Description <span>(optional)</span><textarea maxLength={500} value={description} onChange={event => setDescription(event.target.value)} placeholder="What does your team manage?" /></label>{formError && <p className="form-error" role="alert">{formError}</p>}<button className="button" type="submit" disabled={creating}>{creating ? "Creating…" : "Create organization"}</button></form></section>
+      )}
+
+      {workspace.organization && <>
+        {workspace.organizations.length > 1 && <label className="workspace-select-label">Organization<select value={workspace.organizationId ?? ""} onChange={event => workspace.selectOrganization(event.target.value)}>{workspace.organizations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+        {dataLoading && <p className="workspace-state" role="status">Loading organization data…</p>}
+        {dataError && <div className="workspace-state workspace-error" role="alert"><p>{dataError}</p><button type="button" onClick={() => window.location.reload()}>Reload</button></div>}
+        {summary && !dataError && <>
+          <section className="metric-grid" aria-label="Live organization summary">
+            <article><div className="metric-top"><span>Open requests</span><Icon name="requests" size={22} /></div><strong>{summary.pendingApprovals.toLocaleString()}</strong><small>Pending approval</small></article>
+            <article><div className="metric-top"><span>Document records</span><Icon name="vault" size={22} /></div><strong>{summary.protectedDocuments.toLocaleString()}</strong><small>Encryption flow pending</small></article>
+            <article><div className="metric-top"><span>Active owners</span><Icon name="members" size={22} /></div><strong>{summary.activeOwners.toLocaleString()}</strong><small>Current memberships</small></article>
+            <article><div className="metric-top"><span>Audit events</span><Icon name="audit" size={22} /></div><strong>{summary.securityEvents.toLocaleString()}</strong><small>Last 30 days</small></article>
+          </section>
+          <section className="panel overview-requests"><div className="panel-heading"><div><span className="overline">Governance</span><h2>Recent requests</h2></div><Link href="/dashboard/requests">View all <Icon name="arrow" size={16} /></Link></div>{requests.length === 0 ? <p className="workspace-empty-copy">No protected action requests yet.</p> : <div className="request-list">{requests.slice(0, 4).map(request => <div className="request-item" key={request.id}><span className="request-type type-owner"><Icon name="requests" size={20} /></span><div className="request-copy"><strong>{request.operationType === "REMOVE_OWNER" ? "Remove owner" : request.operationType}</strong><span>Requested by {request.requester.displayName} · {request.approvals.filter(item => item.decision === "APPROVED").length} approvals</span></div><span className="request-risk">{request.status}</span></div>)}</div>}</section>
+        </>}
+      </>}
     </main>
   );
 }
