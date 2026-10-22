@@ -20,6 +20,7 @@ import {
   type UploadInitResponse,
 } from "@/lib/vault/contracts";
 import { generateObjectKey } from "@/lib/storage/keys";
+import { maybeSweepExpiredUploads } from "./maintenance";
 import { enforceRateLimit } from "./rate-limit";
 
 type DocumentWithOwner = Document & { owner: Pick<User, "displayName"> };
@@ -87,6 +88,7 @@ export async function initUpload(organizationId: string, principal: Principal, i
   const membership = await requireMember(organizationId, principal);
   if (membership.role === MembershipRole.AUDITOR) throw new VaultError("forbidden");
   enforceRateLimit(principal, "upload-init");
+  maybeSweepExpiredUploads();
   const user = await getOrCreateUser(principal);
   const objectKey = generateObjectKey();
 
