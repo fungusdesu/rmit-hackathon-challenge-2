@@ -64,6 +64,13 @@ Use a restrained, mature API-provider visual language:
 
 The public page is the first impression. The dashboard is an authenticated-ready preview until TideCloak auth is wired.
 
+### Tactile Button & Micro-Interaction Craft
+
+- **Spring Physics Easing**: Use custom spring-inspired curves (--ease-spring: cubic-bezier(0.22, 1, 0.36, 1) and --ease-snappy: cubic-bezier(0.16, 1, 0.3, 1)) instead of linear or default transitions.
+- **Specular Edge Lighting**: Give primary and secondary action buttons a subtle top inner highlight (inset 0 1px 0 rgba(255, 255, 255, 0.38)) paired with layered elevation shadows and a restrained diagonal sheen sweep on hover.
+- **Tactile Press & Directional Glyphs**: Apply physical press feedback (:active { transform: scale(0.985) }) and translate trailing directional glyphs (↗, →) on hover to reward pointer intent.
+- **Choreographed Surface Entry & Reduced Motion**: Animate focused security cards (.auth-card) with a subtle rise-and-scale keyframe (vAuthRise) and always disable decorative motion under @media (prefers-reduced-motion: reduce).
+
 ## Security Skill
 
 Every future API or server action must:
