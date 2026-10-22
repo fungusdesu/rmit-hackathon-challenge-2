@@ -93,6 +93,43 @@ describe.skipIf(process.env.VAULT_IT !== "1")("vault routes: membership before b
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
+  function rawPost(headers: Record<string, string>, body = "{}") {
+    return new NextRequest("http://localhost/api/x", { method: "POST", body, headers });
+  }
+
+  it("F-07: POST without application/json is 415 on every POST route", async () => {
+    current.principal = member;
+    for (const ct of [undefined, "text/plain", "application/x-www-form-urlencoded", "multipart/form-data; boundary=x"]) {
+      const headers: Record<string, string> = ct ? { "content-type": ct } : {};
+      for (const res of [
+        await uploadInit.POST(rawPost(headers), orgParams()),
+        await commit.POST(rawPost(headers), docParams("abc")),
+        await download.POST(rawPost(headers), docParams("abc")),
+      ]) {
+        expect(res.status).toBe(415);
+        expect(await res.json()).toEqual({ error: "unsupported_content_type" });
+      }
+    }
+    expect((await commit.POST(rawPost({ "content-type": "application/json; charset=utf-8" }), docParams("abc"))).status).toBe(404);
+  });
+
+  it("F-07: cross-origin POST is 403; same-origin is allowed", async () => {
+    current.principal = member;
+    for (const origin of ["http://evil.example", "null", "http://localhost:4000", "https://localhost"]) {
+      const headers = { "content-type": "application/json", origin };
+      for (const res of [
+        await uploadInit.POST(rawPost(headers), orgParams()),
+        await commit.POST(rawPost(headers), docParams("abc")),
+        await download.POST(rawPost(headers), docParams("abc")),
+      ]) {
+        expect(res.status).toBe(403);
+        expect(await res.json()).toEqual({ error: "forbidden" });
+      }
+    }
+    const same = await commit.POST(rawPost({ "content-type": "application/json", origin: "http://localhost" }), docParams("abc"));
+    expect(same.status).toBe(404);
+  });
+
   it("unauthenticated is 401", async () => {
     current.principal = null;
     expect((await uploadInit.POST(req("{}"), orgParams())).status).toBe(401);

@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
 import { requirePrincipal } from "@/lib/auth/server";
 import { initUpload, requireMember } from "@/lib/vault/server/documents";
-import { json, readJsonBody, vaultErrorResponse } from "@/lib/vault/server/http";
+import { assertSafePost, json, readJsonBody, vaultErrorResponse } from "@/lib/vault/server/http";
 import { parseUploadInit } from "@/lib/vault/server/validation";
 
 export async function POST(request: NextRequest, context: { params: Promise<{ organizationId: string }> }) {
   try {
+    assertSafePost(request);
     const principal = await requirePrincipal(request);
     const { organizationId } = await context.params;
     // Membership first: non-members get not_found regardless of what they send.
