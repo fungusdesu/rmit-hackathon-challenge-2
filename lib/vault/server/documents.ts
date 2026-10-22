@@ -20,6 +20,7 @@ import {
   type UploadInitResponse,
 } from "@/lib/vault/contracts";
 import { generateObjectKey } from "@/lib/storage/keys";
+import { DOWNLOAD_ANOMALY_WINDOW_SECONDS, recordDownload } from "./download-monitor";
 import { maybeSweepExpiredUploads } from "./maintenance";
 import { enforceRateLimit } from "./rate-limit";
 
@@ -181,6 +182,15 @@ export async function issueDownload(organizationId: string, principal: Principal
   if (doc.status !== DocumentStatus.AVAILABLE) throw new VaultError("invalid_state");
 
   const download = await getObjectStorage().createDownloadUrl(doc.objectKey, PRESIGNED_DOWNLOAD_TTL_SECONDS);
-  await db.$transaction((tx) => appendAudit(tx, organizationId, membership.userId, "DOCUMENT_DOWNLOAD_ISSUED", doc.id, auditPayload(doc)));
+  const anomalyCount = recordDownload(organizationId, membership.userId);
+  await db.$transaction(async (tx) => {
+    await appendAudit(tx, organizationId, membership.userId, "DOCUMENT_DOWNLOAD_ISSUED", doc.id, auditPayload(doc));
+    if (anomalyCount !== null) {
+      await appendAudit(tx, organizationId, membership.userId, "VAULT_DOWNLOAD_ANOMALY", membership.userId, {
+        count: anomalyCount,
+        windowSeconds: DOWNLOAD_ANOMALY_WINDOW_SECONDS,
+      });
+    }
+  });
   return { url: download.url, expiresAt: download.expiresAt.toISOString() };
 }

@@ -9,6 +9,7 @@ import { createMemoryStorage, type MemoryStorage } from "@/lib/storage/memory";
 import { VAULT_RATE_LIMIT_PER_MINUTE, VaultError, type UploadInitRequest } from "@/lib/vault/contracts";
 import { commitUpload, getDocument, initUpload, issueDownload, listDocuments } from "@/lib/vault/server/documents";
 import { resetRateLimitsForTests } from "@/lib/vault/server/rate-limit";
+import { resetDownloadMonitorForTests } from "@/lib/vault/server/download-monitor";
 
 
 function principal(): Principal {
@@ -194,6 +195,22 @@ describe.skipIf(process.env.VAULT_IT !== "1")("vault documents service", () => {
   it("download of pending doc is invalid_state", async () => {
     const { init } = await uploadAs(p.member);
     await expectCode(issueDownload(orgId, p.member, init.document.id), "invalid_state");
+  });
+
+  it("rate limits download", async () => {
+    const { committed } = await uploadAndCommit(p.member);
+    for (let i = 0; i < VAULT_RATE_LIMIT_PER_MINUTE; i++) await issueDownload(orgId, p.member, committed.id);
+    await expectCode(issueDownload(orgId, p.member, committed.id), "rate_limited");
+  });
+
+  it("writes one VAULT_DOWNLOAD_ANOMALY per window", async () => {
+    resetDownloadMonitorForTests();
+    const { committed } = await uploadAndCommit(p.owner);
+    for (let i = 0; i < 15; i++) await issueDownload(orgId, p.owner, committed.id);
+    const anomalies = await db.auditEvent.findMany({ where: { organizationId: orgId, action: "VAULT_DOWNLOAD_ANOMALY", target: committed.ownerId } });
+    expect(anomalies).toHaveLength(1);
+    expect(anomalies[0].eventJson).toEqual({ count: 11, windowSeconds: 600 });
+    expect(await db.auditEvent.count({ where: { target: committed.id, action: "DOCUMENT_DOWNLOAD_ISSUED" } })).toBe(15);
   });
 
   it("rate limits upload-init", async () => {
