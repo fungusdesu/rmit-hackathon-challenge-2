@@ -10,9 +10,11 @@ const current: { principal: Principal | null } = { principal: null };
 vi.mock("@/lib/auth/server", () => {
   class AuthenticationError extends Error {}
   class AuthConfigurationError extends Error {}
+  class AuthorizationError extends Error {}
   return {
     AuthenticationError,
     AuthConfigurationError,
+    AuthorizationError,
     requirePrincipal: async () => {
       if (!current.principal) throw new AuthenticationError("no principal");
       return current.principal;
