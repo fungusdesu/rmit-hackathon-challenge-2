@@ -207,6 +207,7 @@ Completed:
 - Approval, rejection, cancellation, and exactly-once owner-removal execution routes added
 - Verified `@tidecloak/nextjs@0.14.40` APIs wired for provider, proxy, and server token validation
 - Tide public build arguments separated from runtime server configuration
+- Local TideCloak `nextjs-test` realm provisioned with QEA and `myclient` adapter
 - README and environment defaults added
 
 Not completed:
@@ -305,3 +306,14 @@ The next implementation slice is:
 - Added runtime environment configuration for server values and build-time public client values.
 - Learned that top-level proxy configuration can be evaluated during build; Tide configuration is therefore resolved inside the proxy request function.
 - Verified the SDK integration boundary builds successfully, but no live Tide realm credentials are present, so live login and E2EE remain unverified.
+
+### 2026-10-22: Local Tide realm provisioning
+
+- Started `tideorg/tidecloak-dev:latest` on port `8080` with persistent ignored local data.
+- Reran the generated `init/tcinit.sh` after the first attempt failed because no TideCloak server was running.
+- Provisioned realm `nextjs-test` and client `myclient`.
+- Completed Tide realm setup, QEA enablement, first-admin enrollment, and admin-role grant.
+- Generated the ignored adapter at `tidecloak-setup/tidecloak.json`.
+- Added ignored `.env.local` values for BusinessVault live Tide testing.
+- Verified the live Tide proxy rejects an unauthenticated API request with `401`.
+- Learned that Docker Compose's app container still uses the development auth profile by default; live Tide testing currently runs the BusinessVault server directly with `npm run dev` so both server and browser resolve TideCloak through `localhost:8080`.

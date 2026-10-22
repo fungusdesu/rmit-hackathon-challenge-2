@@ -109,6 +109,18 @@ proxy and independently verifies the access token at the API boundary. No Tide r
 credentials are stored in this repository. Forseti authorization and Tide E2EE document
 encryption remain pending real realm capability testing.
 
+The local realm initializer generated an ignored `.env.local` with the verified development
+realm values. Start the app outside Docker for the first live login test so both the browser
+and the server can reach TideCloak at `localhost:8080`:
+
+```bash
+npm run dev
+```
+
+Then open `http://localhost:3000/auth/login`. The generated `tidecloak-setup/` directory
+and `tidecloak-data/` directory are intentionally ignored because the adapter and local
+realm state should not be committed.
+
 Stop the stack:
 
 ```bash
