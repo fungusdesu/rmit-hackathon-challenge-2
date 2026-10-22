@@ -1,0 +1,284 @@
+# BusinessVault Project Skillbook
+
+## Purpose
+
+This file records the project-specific engineering skills, decisions, workflows, and tasks learned while building BusinessVault. Read it before making future changes.
+
+## Product Context
+
+BusinessVault is a multi-tenant governance platform for shared business assets. Its security goal is to prevent one administrator, founder, or compromised application server from unilaterally controlling protected organizational resources.
+
+The product must distinguish between:
+
+- Requesting an action
+- Authorizing an action
+- Executing an action
+
+Application database approval rows are mutable application state. They are not cryptographic proof. Until a real Tide-backed authorization path is verified, protected approvals must be labeled `APP-LEVEL APPROVAL ONLY`.
+
+## Current Stack
+
+- Next.js 16.4.2 with App Router
+- React 19.1.0
+- TypeScript 5.8.3
+- PostgreSQL 17
+- Prisma 6.19.0
+- MinIO-compatible object storage using `bitnamilegacy/minio:2025.4.22` for local development
+- Docker Compose
+- Node.js 22 Alpine production image
+
+## Repository Map
+
+```text
+app/
+  page.tsx                 Public landing page
+  layout.tsx              Global metadata and styles
+  globals.css             Public and dashboard design system
+  dashboard/
+    layout.tsx            Workspace shell and navigation
+    page.tsx              Dashboard preview
+lib/
+  db.ts                   Prisma client singleton
+prisma/
+  schema.prisma           Tenant-scoped domain schema
+Dockerfile                 Multi-stage production image
+compose.yaml               App, PostgreSQL, and object storage
+.env.example               Local environment variable names
+README.md                  Local setup and database notes
+BUSINESSVAULT_CODEX_SPEC.md Product and security specification
+```
+
+## UI Skill
+
+Use a restrained, mature API-provider visual language:
+
+- Dark public marketing surface with muted green security accent
+- Light authenticated workspace with dark navigation rail
+- Manrope for interface text and DM Mono for labels, metadata, status, and identifiers
+- Thin borders, quiet shadows, compact density, and clear hierarchy
+- Avoid generic gradients, excessive rounded cards, bright dashboards, and decorative noise
+- Keep navigation, status, and action states explicit
+- Maintain responsive layouts for desktop and mobile
+- Do not imply functionality that is not implemented
+- Preview-only screens must show a clear preview or integration limitation notice
+
+The public page is the first impression. The dashboard is an authenticated-ready preview until TideCloak auth is wired.
+
+## Security Skill
+
+Every future API or server action must:
+
+1. Authenticate the principal server-side.
+2. Verify organization membership and active status.
+3. Scope all reads and writes by `organizationId`.
+4. Validate input with an explicit schema.
+5. Enforce least privilege on the server.
+6. Audit the request and the outcome separately.
+7. Use transactions and optimistic concurrency for state changes.
+8. Bind approvals to the exact canonical payload digest.
+9. Check expiry, eligibility, policy version, and tenant again at execution time.
+10. Make execution idempotent and prevent replay.
+
+Never rely on:
+
+- React role checks as authorization
+- A mutable `approved` Boolean
+- Decoded but unverified JWT claims
+- A database hash chain as independent tamper proof
+- Dashboard approval to control third-party provider super-admin actions
+- A mock or demo adapter silently running as production security
+
+## Database Skill
+
+The Prisma schema is intentionally organization-scoped. Current entities include:
+
+- `Organization`
+- `User`
+- `Membership`
+- `Invitation`
+- `Asset`
+- `Document`
+- `Policy`
+- `ActionRequest`
+- `Approval`
+- `Execution`
+- `AuditEvent`
+
+Important constraints already modeled:
+
+- Unique membership per organization and user
+- Unique invitation token hash
+- Unique request idempotency key within an organization
+- Unique approval per request and approver
+- Organization indexes for status, role, and time-based queries
+- Foreign keys with explicit delete behavior
+
+Before changing the schema, check whether a persisted migration exists. Create migrations with:
+
+```bash
+npx prisma migrate dev --name descriptive_change
+```
+
+Do not use destructive resets against shared or user-created data.
+
+## Docker Skill
+
+The peer workflow is:
+
+```bash
+docker compose up --build
+```
+
+Services:
+
+- App: `http://localhost:3000`
+- PostgreSQL: `localhost:5432`
+- Object storage API: `http://localhost:9000`
+- Object storage console: `http://localhost:9001`
+
+The Compose credentials are development-only. Never expose the local stack publicly or reuse its secrets.
+
+The Dockerfile uses:
+
+- Dependency stage with `npm ci`
+- Builder stage with `npx prisma generate` and `npm run build`
+- Non-root `nextjs` runtime user
+- Next standalone output
+
+The official `minio/minio` image was unavailable from the current registry environment. The local fallback is the Bitnami legacy image, pinned to a known working version and configured with `user: "0:0"` so its named volume initializes correctly in this environment.
+
+Useful validation commands:
+
+```bash
+docker compose config --quiet
+docker compose ps
+curl --fail http://localhost:3000/
+curl --fail http://localhost:3000/dashboard
+docker compose down
+```
+
+## TideCloak Integration Skill
+
+TideCloak must be verified against current vendor documentation and installed package types before implementation claims are made.
+
+Known documented areas to validate:
+
+- Next.js provider and login/logout flow
+- Server-side `verifyTideCloakToken`
+- JWT issuer, audience, expiry, signature, and algorithm validation
+- Browser `doEncrypt` and `doDecrypt`
+- E2EE roles and tags
+- QEA prerequisites and licensing
+- Forseti request format, deployment, contracts, and proof verification
+
+Do not invent Tide APIs, proof formats, parameters, or arbitrary application authorization support. If no real Tide realm is available, keep the integration behind an explicit adapter boundary and label the implementation as incomplete.
+
+## Implementation Workflow
+
+For each feature:
+
+1. Read the specification and inspect existing files.
+2. Identify the trust boundary and adversary assumptions.
+3. Implement the smallest complete vertical slice.
+4. Keep demo/mock integrations separate from real integrations.
+5. Add negative security tests before calling a feature protected.
+6. Run the Docker build because Docker is the supported peer workflow.
+7. Update this file with the task, decision, validation, and remaining limitation.
+
+Use `apply_patch` for manual file edits. Keep changes small and avoid unrelated rewrites.
+
+## Current Status
+
+Completed:
+
+- Specification reviewed and implementation plan established
+- Runnable Next.js application created
+- Docker Compose app, PostgreSQL, and object storage stack created
+- Compose migration service added so fresh stacks apply checked-in Prisma migrations
+- Production Docker build validated
+- Professional public landing page implemented
+- Dashboard preview shell implemented at `/dashboard`
+- Prisma tenant-scoped domain schema added
+- Prisma client generation included in the Docker build
+- Initial Prisma migration generated and applied automatically by Compose
+- Explicit development-only authentication adapter added
+- Organization listing, creation, detail, and membership endpoints added
+- README and environment defaults added
+
+Not completed:
+
+- TideCloak authentication
+- Verified JWT middleware and API authorization
+- TideCloak token verification is not yet connected
+- Invitation acceptance flow
+- Action request state machine API
+- Quorum approval enforcement
+- Exactly-once protected executor
+- Browser-side Tide E2EE vault flow
+- S3/MinIO ciphertext upload flow
+- Audit API and independent anchoring
+- Unit, integration, and Playwright security tests
+- Forseti capability validation
+
+Known dependency note:
+
+- `npm audit` currently reports four high-severity advisories through the Prisma 6 development tooling dependency tree. Re-evaluate Prisma version compatibility before production use; do not force-upgrade across a Prisma major without testing schema generation and runtime client behavior.
+
+## Next Tasks
+
+The next implementation slice is:
+
+1. Add a Tide integration capability report and explicit adapter interfaces.
+2. Add verified server authentication middleware or document the blocker.
+3. Add organization and membership service functions with tenant checks.
+4. Commit the initial Prisma migration after starting PostgreSQL.
+5. Add request creation, canonicalization, digesting, and policy snapshot logic.
+6. Add approval and rejection endpoints with unique constraints and transactions.
+7. Add security-focused tests for IDOR, self-approval, replay, expiry, payload mutation, and race conditions.
+
+## Task Log
+
+### 2026-10-22: Repository bootstrap
+
+- Learned that the repository initially contained only the product specification.
+- Created the Next.js and TypeScript foundation.
+- Added Docker Compose for the application, PostgreSQL, and object storage.
+- Validated the production image and Compose configuration.
+
+### 2026-10-22: Registry compatibility
+
+- Learned that `minio/minio` and the official Quay reference were unavailable from the active Docker registry environment.
+- Tested available public images.
+- Selected pinned `bitnamilegacy/minio:2025.4.22` for local development.
+- Added a root user override because the image could not initialize its named volume with its default UID in this environment.
+
+### 2026-10-22: Public UI refinement
+
+- Replaced the placeholder page with a mature security-platform marketing surface.
+- Added responsive navigation, product preview, feature sections, security boundary language, and footer.
+- Used a dark green security-oriented visual system and restrained API-provider layout patterns.
+
+### 2026-10-22: Application shell
+
+- Added a workspace dashboard at `/dashboard`.
+- Added navigation for requests, approvals, vault, members, assets, audit, and settings.
+- Added explicit preview-environment messaging so the UI does not overclaim authentication or cryptographic enforcement.
+
+### 2026-10-22: Domain model
+
+- Added Prisma models for tenant-scoped organizations, membership, assets, documents, policies, action requests, approvals, executions, and audit events.
+- Added unique constraints for membership, approval, invitation, and idempotency behavior.
+- Added Prisma generation to the Docker build.
+
+### 2026-10-22: First functional API slice
+
+- Generated `prisma/migrations/20261022050123_initial/migration.sql`.
+- Added a server-side `requirePrincipal` boundary.
+- Kept TideCloak as the default authentication mode so unconfigured production-like requests fail closed.
+- Added a development adapter requiring both `AUTH_MODE=development` and `ALLOW_INSECURE_DEV_AUTH=true`.
+- Added organization creation and listing with membership-scoped queries.
+- Added organization detail and active-membership endpoints.
+- Added an organization summary endpoint for dashboard metrics.
+- Verified an outsider receives an empty organization list and cannot use another organization's membership endpoint.
+- Added a Compose migration service that waits for PostgreSQL health before starting the app.
+- Learned that `NODE_ENV` can be compile-time inlined by Next.js; runtime development auth therefore uses an explicit opt-in flag instead of relying only on `NODE_ENV`.

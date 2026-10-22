@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+  AUDITOR
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+enum AssetManagedMode {
+  INVENTORY_ONLY
+  API_INTEGRATED
+  CRYPTOGRAPHICALLY_GATED
+}
+
+enum RequestStatus {
+  DRAFT
+  PENDING
+  AUTHORIZED
+  EXECUTING
+  EXECUTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+  FAILED
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
+enum ExecutionStatus {
+  STARTED
+  SUCCEEDED
+  FAILED
+}
+
+model Organization {
+  id                    String         @id @default(cuid())
+  name                  String
+  description           String?
+  setupStatus           String         @default("INITIALIZING")
+  ownerQuorumPolicyVersion Int          @default(1)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  memberships           Membership[]
+  invitations            Invitation[]
+  assets                Asset[]
+  documents             Document[]
+  policies              Policy[]
+  actionRequests        ActionRequest[]
+  auditEvents           AuditEvent[]
+
+  @@index([createdAt])
+}
+
+model User {
+  id                String          @id @default(cuid())
+  tideSubject       String          @unique
+  displayName       String
+  email             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  memberships       Membership[]
+  invitationsSent   Invitation[]    @relation("InvitationSender")
+  documents         Document[]      @relation("DocumentOwner")
+  requests          ActionRequest[] @relation("RequestRequester")
+  approvals         Approval[]
+  auditEvents       AuditEvent[]
+}
+
+model Membership {
+  id             String           @id @default(cuid())
+  organizationId String
+  userId         String
+  role           MembershipRole
+  status         MembershipStatus @default(ACTIVE)
+  joinedAt       DateTime?
+  version        Int              @default(1)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+  @@index([organizationId, role, status])
+}
+
+model Invitation {
+  id             String         @id @default(cuid())
+  organizationId String
+  email          String
+  invitedRole    MembershipRole
+  invitedById    String
+  tokenHash      String         @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy      User           @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, expiresAt])
+}
+
+model Asset {
+  id                 String           @id @default(cuid())
+  organizationId     String
+  type               String
+  provider           String
+  externalResourceId String?
+  name               String
+  sensitivity        String?
+  managedMode        AssetManagedMode @default(INVENTORY_ONLY)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, provider])
+}
+
+model Document {
+  id                 String       @id @default(cuid())
+  organizationId     String
+  ownerId            String
+  objectKey          String       @unique
+  ciphertextFormat   String
+  encryptionPolicyTag String
+  size               Int
+  hash               String
+  classification     String
+  version            Int          @default(1)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner              User         @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, classification])
+}
+
+model Policy {
+  id                String       @id @default(cuid())
+  organizationId    String
+  operationType     String
+  requiredApprovals Int
+  eligibleRoles     Json
+  forbidSelfApproval Boolean     @default(true)
+  ttlSeconds        Int          @default(86400)
+  version           Int
+  active            Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, operationType, version])
+  @@index([organizationId, operationType, active])
+}
+
+model ActionRequest {
+  id              String        @id @default(cuid())
+  organizationId  String
+  requesterId     String
+  operationType   String
+  targetType      String
+  targetId        String
+  canonicalPayload Json
+  payloadDigest   String
+  policyVersion   Int
+  status          RequestStatus @default(DRAFT)
+  expiresAt       DateTime
+  authorizedAt    DateTime?
+  executedAt      DateTime?
+  idempotencyKey  String
+  version         Int           @default(1)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requester       User          @relation("RequestRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  approvals       Approval[]
+  executions      Execution[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, status, expiresAt])
+  @@index([requesterId, createdAt])
+}
+
+model Approval {
+  id                String           @id @default(cuid())
+  requestId         String
+  approverId        String
+  decision          ApprovalDecision
+  payloadDigest     String
+  policyProofRef    String?
+  identitySessionRef String?
+  createdAt         DateTime         @default(now())
+  request           ActionRequest    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approver          User             @relation(fields: [approverId], references: [id], onDelete: Restrict)
+
+  @@unique([requestId, approverId])
+  @@index([requestId, decision])
+}
+
+model Execution {
+  id                  String          @id @default(cuid())
+  requestId           String
+  executorType        String
+  externalTransactionId String?
+  status              ExecutionStatus
+  attemptedAt         DateTime        @default(now())
+  finishedAt          DateTime?
+  safeErrorCode       String?
+  request             ActionRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, attemptedAt])
+}
+
+model AuditEvent {
+  id             String       @id @default(cuid())
+  organizationId String
+  actorId        String?
+  action         String
+  target         String
+  correlationId  String
+  eventJson      Json
+  occurredAt     DateTime     @default(now())
+  previousEventHash String?
+  eventHash      String
+  externalAnchorRef String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor          User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, occurredAt])
+  @@index([correlationId])
+}

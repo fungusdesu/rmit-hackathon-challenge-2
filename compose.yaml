@@ -1,0 +1,80 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      AUTH_MODE: development
+      ALLOW_INSECURE_DEV_AUTH: "true"
+      DEV_AUTH_SUBJECT: local-owner
+      DEV_AUTH_NAME: Local Owner
+      DEV_AUTH_EMAIL: owner@localhost.test
+      DATABASE_URL: postgresql://businessvault:businessvault@postgres:5432/businessvault
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: businessvault
+      S3_ACCESS_KEY_ID: businessvault
+      S3_SECRET_ACCESS_KEY: businessvault-secret
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: postgresql://businessvault:businessvault@postgres:5432/businessvault
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: businessvault
+      POSTGRES_USER: businessvault
+      POSTGRES_PASSWORD: businessvault
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U businessvault -d businessvault"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  minio:
+    image: bitnamilegacy/minio:2025.4.22
+    user: "0:0"
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: businessvault
+      MINIO_ROOT_PASSWORD: businessvault-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  minio-data:
