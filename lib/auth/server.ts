@@ -20,6 +20,7 @@ function developmentPrincipal(request: NextRequest): Principal {
     subject,
     displayName: request.headers.get("x-dev-user-name") ?? process.env.DEV_AUTH_NAME ?? "Development User",
     email: request.headers.get("x-dev-user-email") ?? process.env.DEV_AUTH_EMAIL ?? null,
+    emailVerified: request.headers.get("x-dev-user-email-verified") !== "false",
     source: "development",
   };
 }
@@ -34,7 +35,11 @@ export async function requirePrincipal(request: NextRequest): Promise<Principal>
     if (!config) throw new AuthConfigurationError("TideCloak is not configured");
     const cookieToken = request.cookies.get("kcToken")?.value;
     const bearerToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
-    const token = cookieToken ?? bearerToken;
+    if (cookieToken && !bearerToken && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+      const origin = request.headers.get("origin");
+      if (!origin || origin !== request.nextUrl.origin) throw new AuthenticationError("Same-origin request required");
+    }
+    const token = bearerToken ?? cookieToken;
     if (!token) throw new AuthenticationError("A TideCloak access token is required");
     const payload = await verifyTideCloakToken(config, token);
     if (!payload) throw new AuthenticationError("TideCloak token verification failed");
@@ -44,6 +49,7 @@ export async function requirePrincipal(request: NextRequest): Promise<Principal>
       subject,
       displayName: typeof payload.name === "string" ? payload.name : typeof payload.preferred_username === "string" ? payload.preferred_username : subject,
       email: typeof payload.email === "string" ? payload.email : null,
+      emailVerified: payload.email_verified === true,
       source: "tidecloak",
     };
   }

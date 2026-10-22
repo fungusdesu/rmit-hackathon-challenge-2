@@ -65,9 +65,10 @@ curl -X POST http://localhost:3000/api/organizations \
 
 The API is only available with `AUTH_MODE=development` in the local Compose profile.
 
-## Approval workflow
+## Governance workflow
 
-The first protected operation is `REMOVE_OWNER`. A request is bound to a canonical payload
+Protected operations are `REMOVE_OWNER`, `INVITE_PRIVILEGED_MEMBER`,
+`CHANGE_PRIVILEGED_MEMBERSHIP`, and `UPDATE_POLICY`. A request is bound to a canonical payload
 digest and an idempotency key. Approvals are distinct, policy-scoped, and cannot be issued
 by the requester. Once the configured quorum is reached, execution claims the request in a
 transaction and prevents a second execution.
@@ -86,6 +87,52 @@ POST /api/organizations/:organizationId/requests/:requestId/execute
 These approvals are currently `APP-LEVEL APPROVAL ONLY`. They are not a cryptographic
 guarantee against a compromised application server until a verified Tide authorization
 proof is bound to the final executor.
+
+New organizations start in `INITIALIZING`. The founder can invite owners directly until
+three owners accept. Activation revokes unused setup owner invitations. After activation,
+owner/admin invitations and changes to privileged memberships require a protected request.
+Owner removal needs two approvals from owners other than the requester and target, so it
+requires at least four active owners and must leave at least three.
+
+Invitation endpoints:
+
+```text
+GET    /api/organizations/:organizationId/invitations
+POST   /api/organizations/:organizationId/invitations
+DELETE /api/organizations/:organizationId/invitations/:invitationId
+POST   /api/invitations/accept
+PATCH  /api/organizations/:organizationId/members/:memberId
+GET    /api/organizations/:organizationId/policies
+GET    /api/organizations/:organizationId/audit
+```
+
+Invitation creation returns an acceptance link once. Only the token hash is stored; the
+recipient must sign in with a verified matching email. Ordinary `MEMBER`/`AUDITOR` changes
+can be made by an active owner or admin using `PATCH /members/:memberId` with a `reason`
+and a `role` and/or `status`. A removed membership cannot be reactivated directly.
+
+Protected request payloads use the existing `POST /requests` envelope with an
+`idempotencyKey`. Examples:
+
+```json
+{"operationType":"INVITE_PRIVILEGED_MEMBER","idempotencyKey":"unique-request-001","payload":{"email":"new-owner@example.test","role":"OWNER","reason":"Add a co-owner"}}
+{"operationType":"CHANGE_PRIVILEGED_MEMBERSHIP","idempotencyKey":"unique-request-002","payload":{"memberId":"membership-id","status":"SUSPENDED","reason":"Access review"}}
+{"operationType":"UPDATE_POLICY","idempotencyKey":"unique-request-003","payload":{"operationType":"INVITE_PRIVILEGED_MEMBER","requiredApprovals":2,"ttlSeconds":3600,"baseVersion":1,"reason":"Shorter approval window"}}
+```
+
+Policy updates always require two distinct owner approvals; the policy for `UPDATE_POLICY`
+cannot itself be edited. Policy updates cancel unexecuted requests for the changed operation.
+The audit API verifies links and hashes for new events, and reports legacy events whose
+old hash format cannot be independently recomputed. The chain has no independent anchor.
+
+For an isolated development database and a running development-auth app, run:
+
+```bash
+GOVERNANCE_TEST_BASE_URL=http://localhost:3000 npm run test:governance
+```
+
+The test requires `DATABASE_URL` and creates unique test organizations. Never run it against
+a shared production database. Tide login and invalid-token tests still require a live realm.
 
 ## TideCloak integration
 
@@ -150,6 +197,6 @@ docker compose down -v
 
 ## Current status
 
-The repository currently contains the runnable application foundation and local services.
-TideCloak integration, Prisma schema/migrations, governance workflows, and encrypted vault
-behavior will be added only after their documented capabilities are verified.
+The repository contains the application foundation, organization and governance APIs,
+and local services. Governance remains application-level. Live Tide login, external
+cryptographic action authorization, and the encrypted vault require separate validation.

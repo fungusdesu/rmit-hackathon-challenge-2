@@ -12,6 +12,7 @@ export async function proxy(request: NextRequest) {
       "/dashboard": [],
       "/dashboard/*": [],
       "/api/organizations/*": [],
+      "/api/invitations/*": [],
     },
     onFailure: ({ token }, currentRequest) => {
       if (currentRequest.nextUrl.pathname.startsWith("/api/")) return NextResponse.json({ error: token ? "forbidden" : "unauthorized" }, { status: token ? 403 : 401 });
@@ -21,5 +22,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard", "/dashboard/:path*", "/api/organizations/:path*"],
+  matcher: ["/dashboard", "/dashboard/:path*", "/api/organizations/:path*", "/api/invitations/:path*"],
 };
