@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// The real auth module pulls in the TideCloak SDK, which does not load under vitest.
+vi.mock("@/lib/auth/errors", () => ({ authErrorResponse: () => null }));
 import { VaultError } from "@/lib/vault/contracts";
 import { json, vaultErrorResponse } from "@/lib/vault/server/http";
 
