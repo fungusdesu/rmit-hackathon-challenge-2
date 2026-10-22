@@ -1,5 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Set E2E_BASE_URL (e.g. http://localhost:3000) to test an already-running dev-auth server:
+// Next.js refuses a second `next dev` in the same directory.
+const externalBaseUrl = process.env.E2E_BASE_URL;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   outputDir: "./tests/e2e/artifacts/test-results",
@@ -8,7 +12,7 @@ export default defineConfig({
   retries: 0,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:3200",
+    baseURL: externalBaseUrl ?? "http://localhost:3200",
     trace: "on-first-retry",
   },
   projects: [
@@ -17,7 +21,7 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
+  webServer: externalBaseUrl ? undefined : {
     command: "npx next dev -p 3200",
     url: "http://localhost:3200",
     reuseExistingServer: true,

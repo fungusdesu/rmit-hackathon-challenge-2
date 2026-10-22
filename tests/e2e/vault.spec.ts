@@ -94,7 +94,8 @@ test.describe.serial("Vault browser E2E flow (development mode)", () => {
   test("3. No plaintext leaves the browser", async () => {
     expect(capturedRequests.length).toBeGreaterThan(0);
 
-    const appRequests = capturedRequests.filter((r) => r.url.includes("localhost:3200"));
+    const appHost = new URL(process.env.E2E_BASE_URL ?? "http://localhost:3200").host;
+    const appRequests = capturedRequests.filter((r) => new URL(r.url).host === appHost);
     expect(appRequests.length).toBeGreaterThan(0);
     for (const req of appRequests) {
       expect(req.url).not.toContain(canary);
