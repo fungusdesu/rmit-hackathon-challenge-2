@@ -49,6 +49,8 @@ export async function updateAsset(organizationId: string, assetId: string, princ
   const asset = await db.$transaction(async tx => {
     const existing = await tx.asset.findFirst({ where: { id: assetId, organizationId } });
     if (!existing) throw new AssetError("not_found");
+    // Downgrading a CRITICAL asset would bypass the quorum rule that protects its deletion.
+    if (existing.criticality === "CRITICAL" && input.criticality !== undefined && input.criticality !== "CRITICAL") throw new AssetError("critical_asset_requires_quorum");
     const updated = await tx.asset.update({ where: { id: existing.id }, data: input });
     await appendAudit(tx, organizationId, membership.userId, "ASSET_UPDATED", existing.id, { assetId: existing.id, organizationId, changedFields: Object.keys(input).sort() });
     return updated;
