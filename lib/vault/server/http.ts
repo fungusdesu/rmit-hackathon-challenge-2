@@ -5,8 +5,14 @@ import { VAULT_ERRORS, VaultError } from "@/lib/vault/contracts";
 
 const MAX_JSON_BODY_BYTES = 16384;
 
+export const VAULT_RESPONSE_HEADERS: Readonly<Record<string, string>> = Object.freeze({
+  "Cache-Control": "no-store",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
+});
+
 export function json(data: unknown, status = 200) {
-  return NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(data, { status, headers: VAULT_RESPONSE_HEADERS });
 }
 
 export function vaultErrorResponse(error: unknown) {
