@@ -1,0 +1,43 @@
+.page { display: grid; gap: 16px; padding: 16px; max-width: 1100px; margin: 0 auto; color: var(--ink); }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+.head h1 { margin: 0 0 4px; }
+.eyebrow { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.muted { color: var(--muted); margin: 4px 0; font-size: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.card h2, .card h3 { margin: 0; }
+.callout { border: 1px solid var(--green); border-left-width: 4px; border-radius: 8px; padding: 10px 12px; background: var(--panel); }
+.warn { border-color: #b7791f; }
+.error { border: 1px solid #c53030; color: #9b2c2c; background: #fff5f5; border-radius: 8px; padding: 10px 12px; margin: 0; }
+.ok { border: 1px solid var(--green); background: var(--panel); border-radius: 8px; padding: 10px 12px; }
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th, .table td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.page button { min-height: 36px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; font: inherit; }
+.page button[type="submit"] { background: var(--green); border-color: var(--green-dark); color: #fff; }
+.page button:disabled { opacity: .6; cursor: not-allowed; }
+.page button:focus-visible, .page input:focus-visible, .page select:focus-visible, .page textarea:focus-visible, .page a:focus-visible { outline: 2px solid var(--green-dark); outline-offset: 2px; }
+.danger { color: #9b2c2c !important; border-color: #e5a3a3 !important; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid transparent; }
+.roleOWNER { background: #fdecc8; color: #7a4a00; border-color: #e8c27a; }
+.roleADMIN { background: #e3e8ff; color: #2c3a8c; border-color: #b4c0f5; }
+.roleMEMBER { background: #e6f4ea; color: #1e5631; border-color: #a8d5b5; }
+.roleAUDITOR { background: #eee; color: #444; border-color: #ccc; }
+.active { background: #e6f4ea; color: #1e5631; }
+.suspended { background: #fdecec; color: #8a1f1f; }
+.form { display: grid; gap: 10px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.field { display: grid; gap: 4px; font-size: 14px; flex: 1 1 200px; }
+.field input, .field select, .field textarea { font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); min-width: 0; }
+.secret { border: 1px dashed #b7791f; border-radius: 8px; padding: 12px; display: grid; gap: 8px; }
+.secret p { margin: 0; }
+.code { word-break: break-all; font-size: 13px; background: var(--bg); padding: 8px; border-radius: 6px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .table tr { display: block; border-bottom: 1px solid var(--line); padding: 8px 0; }
+  .table td { display: flex; justify-content: space-between; gap: 8px; border: 0; padding: 4px 0; }
+  .table td[data-label]::before { content: attr(data-label); font-weight: 600; color: var(--muted); }
+  .actions { justify-content: flex-start !important; }
+}
