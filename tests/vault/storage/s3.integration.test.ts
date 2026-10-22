@@ -15,9 +15,11 @@ describe.skipIf(process.env.VAULT_IT !== "1")("s3 storage (MinIO integration)", 
   let generateObjectKey: () => string;
 
   beforeAll(async () => {
+    // Respect an existing endpoint (e.g. http://minio:9000 inside Compose); default to the host-mapped port.
+    const endpoint = process.env.S3_ENDPOINT ?? "http://localhost:9000";
     Object.assign(process.env, {
-      S3_ENDPOINT: "http://localhost:9000",
-      S3_PUBLIC_ENDPOINT: "http://localhost:9000",
+      S3_ENDPOINT: endpoint,
+      S3_PUBLIC_ENDPOINT: process.env.S3_PUBLIC_ENDPOINT ?? endpoint,
       S3_BUCKET: "businessvault",
       S3_ACCESS_KEY_ID: "businessvault",
       S3_SECRET_ACCESS_KEY: "businessvault-secret",
@@ -39,7 +41,7 @@ describe.skipIf(process.env.VAULT_IT !== "1")("s3 storage (MinIO integration)", 
 
     const download = await storage.createDownloadUrl(key, 60);
     const url = new URL(download.url);
-    expect(url.host).toBe("localhost:9000");
+    expect(url.host).toBe(new URL(process.env.S3_PUBLIC_ENDPOINT!).host);
     expect(Number(url.searchParams.get("X-Amz-Expires"))).toBeLessThanOrEqual(60);
     const got = await fetch(download.url);
     expect(got.status).toBe(200);
