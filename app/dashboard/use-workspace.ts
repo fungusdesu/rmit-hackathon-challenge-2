@@ -17,6 +17,24 @@ export type ActionRequest = {
   expiresAt: string;
 };
 
+export type AuditEventItem = { id: string; action: string; target: string; actorId: string | null; occurredAt: string };
+export type PolicyItem = { id: string; operationType: string; requiredApprovals: number; active?: boolean };
+export type SessionPrincipal = { subject: string; displayName: string; email: string | null; source: string };
+
+/** Signed-in principal from /api/auth/session (Tide mode) or the dev subject (development mode). */
+export function useSessionPrincipal() {
+  const [principal, setPrincipal] = useState<SessionPrincipal | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then(response => (response.ok ? response.json() : null))
+      .then(data => { if (active && data?.principal) setPrincipal(data.principal as SessionPrincipal); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+  return principal;
+}
+
 export async function apiJson<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, { cache: "no-store", ...options });
   const data = await response.json().catch(() => ({}));
