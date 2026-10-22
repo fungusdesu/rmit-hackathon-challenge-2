@@ -147,6 +147,13 @@ describe("vault flow", () => {
     expect(await cipher.decryptText(calls.init!.encryptedName)).toBe(NAME_CANARY);
   });
 
+  it("reports upload steps in order", async () => {
+    const { api } = fakeApi();
+    const steps: string[] = [];
+    await uploadFile(cipher, api, "org1", fileOf("x"), "INTERNAL", (s) => steps.push(s));
+    expect(steps).toEqual(["encrypting", "uploading", "verifying"]);
+  });
+
   it("rejects disallowed types and oversized files before calling the api", async () => {
     const { api } = fakeApi();
     await expect(uploadFile(cipher, api, "o", fileOf("x", "a.exe", "application/x-msdownload"), "INTERNAL")).rejects.toThrow("unsupported_type");

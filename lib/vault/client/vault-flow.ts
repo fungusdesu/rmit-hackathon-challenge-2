@@ -26,8 +26,11 @@ export function checkFile(file: Pick<FileLike, "type" | "size">, maxBytes = DEFA
   return file.type;
 }
 
-export async function uploadFile(cipher: VaultCipher, api: FlowApi, orgId: string, file: FileLike, classification: Classification): Promise<DocumentMetadata> {
+export type UploadStep = "encrypting" | "uploading" | "verifying";
+
+export async function uploadFile(cipher: VaultCipher, api: FlowApi, orgId: string, file: FileLike, classification: Classification, onStep?: (step: UploadStep) => void): Promise<DocumentMetadata> {
   const declaredContentType = checkFile(file);
+  onStep?.("encrypting");
   let ciphertext: Uint8Array, encryptedName: string;
   try {
     ciphertext = await cipher.encryptBytes(new Uint8Array(await file.arrayBuffer()));
@@ -41,7 +44,9 @@ export async function uploadFile(cipher: VaultCipher, api: FlowApi, orgId: strin
     classification, declaredContentType, ciphertextSize: ciphertext.length, ciphertextSha256,
     ciphertextFormat: cipher.format, encryptionPolicyTag: VAULT_ENCRYPTION_TAG, encryptedName,
   });
+  onStep?.("uploading");
   await api.uploadCiphertext(init.upload, ciphertext);
+  onStep?.("verifying");
   return (await api.commit(orgId, init.document.id)).document;
 }
 
