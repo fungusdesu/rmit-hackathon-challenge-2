@@ -220,6 +220,54 @@ Remove data stored in Compose-managed volumes (a custom `POSTGRES_DATA_DIR` is r
 docker compose down -v
 ```
 
+## Encrypted document vault
+
+The vault stores documents as ciphertext only. Files and filenames are encrypted in the
+browser; the server receives ciphertext, a SHA-256 of the ciphertext, and minimized
+metadata (declared MIME type, ciphertext size, classification, uploader, timestamps).
+The browser uploads ciphertext directly to MinIO through a presigned POST whose policy
+fixes the object key, `application/octet-stream`, and a byte range. The server re-checks
+size and hash before marking a document available.
+
+```text
+GET  /api/organizations/:organizationId/documents
+POST /api/organizations/:organizationId/documents/upload-init
+GET  /api/organizations/:organizationId/documents/:documentId
+POST /api/organizations/:organizationId/documents/:documentId/commit
+POST /api/organizations/:organizationId/documents/:documentId/download
+```
+
+- UI: `/dashboard/vault`; Tide realm test panel: `/dashboard/vault/diagnostics`.
+- Encryption: Tide `doEncrypt`/`doDecrypt` with tag `vault` (realm roles
+  `_tide_vault.selfencrypt` and `_tide_vault.selfdecrypt`). In `AUTH_MODE=development`
+  the UI uses a clearly labelled **DEMO — NOT E2EE** browser AES key instead, and the
+  server rejects that format whenever `AUTH_MODE` is not `development`.
+- Decryption is **uploader-only** (Tide self-decrypt). Shared organization decryption is
+  blocked on Forseti policy-protected encryption, whose policy-creation docs are not yet
+  published.
+- Limits: 5 MiB ciphertext by default (`VAULT_MAX_CIPHERTEXT_BYTES`, hard cap 10 MiB),
+  declared-type allowlist, 15-minute pending uploads, 60-second download URLs,
+  30 requests/minute per user for upload-init and download (single-instance only).
+- Large-file envelope encryption is deferred until a key-wrapping design is reviewed.
+
+Tests (Postgres and MinIO from Compose must be running; HTTP suites also need the app on
+port 3000 in development auth mode):
+
+```bash
+npm run test:vault
+VAULT_IT=1 npm run test:vault
+```
+
+After uploading a file containing a canary string, check that it reached no server-side
+store:
+
+```bash
+node --no-warnings --experimental-strip-types scripts/vault/leak-scan.ts YOUR-CANARY-STRING
+```
+
+The feature status matrix, threat notes, and Tide verification record are in
+`docs/vault/STATUS.md` and `docs/vault/TIDE_E2EE_VERIFICATION.md`.
+
 ## Current status
 
 The repository contains the application foundation, organization and governance APIs,

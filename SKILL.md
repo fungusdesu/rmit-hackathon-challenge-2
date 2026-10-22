@@ -211,6 +211,8 @@ Completed:
 - Full Tide adapter JSON support added for server and client configuration
 - Tide logout route added at `/auth/logout`
 - README and environment defaults added
+- Ciphertext-only document vault: additive Document migration, MinIO/S3 adapter with presigned POST/GET, five organization-scoped document routes, browser vault UI, Tide diagnostics panel
+- Vault unit, Postgres/MinIO integration, and HTTP security tests plus a canary leak-scan script (`docs/vault/STATUS.md`)
 
 Not completed:
 
@@ -219,8 +221,8 @@ Not completed:
 - TideCloak E2EE round-trip test
 - Invitation acceptance flow
 - Configurable policy management API
-- Browser-side Tide E2EE vault flow
-- S3/MinIO ciphertext upload flow
+- Live Tide E2EE vault round trip (code path exists; blocked on realm provisioning, see `docs/vault/TIDE_E2EE_VERIFICATION.md`)
+- Shared organization decryption (needs Forseti policy-protected encryption)
 - Audit API and independent anchoring
 - Unit, integration, and Playwright security tests
 - Forseti capability validation
@@ -365,3 +367,20 @@ The next implementation slice is:
 - Built navigable, interactive UI previews for approvals, vault, members, assets, audit, and settings with search, filters, and record details.
 - Kept every sample screen visibly labeled as illustrative. Existing organization and protected-request APIs remain the only connected workflows; no pending security capability is represented as active.
 - Validated a production Docker build, all six preview routes, filtering and selection, desktop and mobile rendering, and lack of horizontal overflow.
+
+### 2026-10-22: Encrypted document vault
+
+- Verified the installed SDK signatures: `doEncrypt([{data, tags}], policy?)` and `doDecrypt([{encrypted, tags}], policy?)` return `(string | Uint8Array)[]`; roles are `_tide_<tag>.selfencrypt` / `_tide_<tag>.selfdecrypt`; they are unavailable in hybrid mode.
+- Learned that "self" roles may bind ciphertext to the uploader; the MVP is uploader-only decrypt, and shared decrypt is blocked on Forseti policy-protected encryption (docs "coming soon").
+- Added migration `20261022063000_vault_document_upload` (DocumentStatus enum plus nullable/defaulted upload columns only).
+- Added `lib/vault/contracts.ts` as the single source for limits, allowlists, formats, and fixed error codes.
+- Upload flow: browser encrypts file and filename, hashes the ciphertext (never the plaintext), upload-init returns a presigned POST pinned to key, `application/octet-stream`, and byte range; commit re-verifies size and SHA-256 or rejects and deletes the object.
+- Object keys are `v1/` + 256-bit random base64url; `objectKey` is never returned by the API.
+- Presigned URLs are signed against `S3_PUBLIC_ENDPOINT` (browser host) while server calls use `S3_ENDPOINT`.
+- The demo cipher (`demo-not-e2ee-v1`) is development-only, labelled in the UI, and rejected by the server unless `AUTH_MODE=development`.
+- Learned that `prisma format` realigns the whole schema; avoid it to keep schema diffs minimal for teammates.
+- Learned that `@tidecloak/nextjs` postinstall rewrites `public/silent-check-sso.html`; restore it before committing.
+- Learned that local tidecloak-dev fails with a root-owned named volume on `/opt/keycloak/data/h2`; run it without that volume (or fix ownership).
+- Ran `tcinit.sh` inside an Alpine container sharing the TideCloak network namespace so `jq` is available and all URLs stay `localhost:8080`.
+- Tide realm provisioning repeatedly failed at `setUpTideRealm` with `TIDE-IDPEXT-VENDOR-KEYGEN_FAILED` (ORK timeout / HTTP 500 during wallet finalization); Tide E2EE remains NOT VERIFIED.
+- Verified: 35 unit tests, 43 Postgres/MinIO integration tests, and 47 HTTP security tests pass; live browser demo round trip works; canary leak-scan PASS on `pg_dump` and every MinIO object.

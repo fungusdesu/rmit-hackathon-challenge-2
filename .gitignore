@@ -8,3 +8,4 @@ npm-debug.log*
 tidecloak-data/
 tidecloak-setup/
 PEER_HANDOFF*
+tsconfig.tsbuildinfo

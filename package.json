@@ -10,9 +10,16 @@
     "test:tide": "node --test tests/tide/*.test.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "test": "vitest run",
+    "test:vault": "vitest run tests/vault",
+    "test:e2e": "playwright test",
+    "vault:leak-scan": "node --experimental-strip-types scripts/vault/leak-scan.ts",
     "test:governance": "node --test tests/governance/*.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1155.0",
+    "@aws-sdk/s3-presigned-post": "3.1155.0",
+    "@aws-sdk/s3-request-presigner": "3.1155.0",
     "@prisma/client": "6.19.0",
     "@tidecloak/nextjs": "^0.14.40",
     "@tidecloak/verify": "^0.14.33",
@@ -21,10 +28,12 @@
     "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@types/node": "22.15.30",
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
     "prisma": "6.19.0",
-    "typescript": "5.8.3"
+    "typescript": "5.8.3",
+    "vitest": "5.0.5"
   }
 }
