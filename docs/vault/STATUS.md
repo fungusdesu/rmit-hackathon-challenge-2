@@ -42,7 +42,7 @@ Updated 2026-10-22. Status values: **VERIFIED** (automated test or live run), **
 - No claim of protection against a compromised server until the Tide path is verified in this deployment.
 - The Next.js dev server logs request paths, so document data must never go in URLs (the client never does).
 - Invitations now go through the governance workflow (merged from `main`). Privileged invites need quorum approval, so a quick AUDITOR demo may still use the presenter-scoped database insert in `DEMO.md`.
-- MinIO currently answers CORS with `Access-Control-Allow-Origin: *` (found by the Playwright suite); the `MINIO_API_CORS_ALLOW_ORIGIN` setting in `compose.yaml` is not taking effect on the running container. Ciphertext-only storage limits the impact, but restrict the origin before any non-local deployment.
+- MinIO CORS is restricted to `http://localhost:3000,http://localhost:3200` via `MINIO_API_CORS_ALLOW_ORIGIN` (override with `MINIO_CORS_ALLOW_ORIGIN`). Verified: a foreign origin receives no allow header. (It had answered `*` until 16:35 because the setting was lost in a compose rewrite.)
 - Browser E2E (Playwright, development mode): 7/7 pass (`tests/e2e/vault.spec.ts`, `docs/vault/E2E_FINDINGS.md`).
 - `createTideCloakProxy` (`@tidecloak/nextjs@0.14.40`) authenticates `/api/organizations/*` from the `kcToken` cookie only. Browsers work because the SDK sets that cookie. Bearer-only clients (curl, scripts) get 401 from the proxy and must send the cookie.
 - Security review findings and their status are tracked in `SECURITY_REVIEW.md`; the threat model is in `THREAT_MODEL.md`.

@@ -80,6 +80,8 @@ services:
     environment:
       MINIO_ROOT_USER: businessvault
       MINIO_ROOT_PASSWORD: businessvault-secret
+      # Browser uploads/downloads use presigned URLs; only the app (and the Playwright dev server) may call MinIO cross-origin.
+      MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_CORS_ALLOW_ORIGIN:-http://localhost:3000,http://localhost:3200}
     ports:
       - "9000:9000"
       - "9001:9001"

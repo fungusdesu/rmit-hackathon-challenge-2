@@ -9,7 +9,7 @@ Updated 2026-10-22 16:27 (UTC+7) on branch `feat/mvp-complete`. Scope: the spec'
 | §17 definition of done (12 items) | **11 / 12 ≈ 92%** | Only "authorized encrypted round trip with Tide" is partial |
 | §11 Phase 1 deliverables (9 items) | **8.5 / 9 ≈ 94%** | Tide client-side decrypt prototype is built but not run live |
 | §12 screens (10) | **10 / 10 built** | The 6 newest screens are verified by HTTP + render checks, not yet by click-through browser tests |
-| Verification depth | **~80%** | Live Tide E2EE and browser E2E for the non-vault pages are missing |
+| Verification depth | **~88%** | Playwright now covers every module (18/18); live Tide E2EE is still missing |
 
 **Honest single number: ~90% functional MVP.** The remaining ~10% is verification against live Tide (blocked by Tide-network errors today) and broader browser testing, not missing features.
 
@@ -38,10 +38,10 @@ Updated 2026-10-22 16:27 (UTC+7) on branch `feat/mvp-complete`. Scope: the spec'
 ## What's left (the ~10%)
 
 1. **Live Tide E2EE round trip.** Log in as the enrolled admin, then run `/dashboard/vault/diagnostics`. Blocked today by Tide-network signing errors and time (`docs/vault/TIDE_E2EE_VERIFICATION.md`).
-2. **Browser click-through / Playwright** for approvals, members, assets, audit and settings. Only the vault has Playwright coverage today.
+2. ~~Browser Playwright coverage for all modules~~: **done** (18/18; `E2E_BASE_URL=http://localhost:3000 npx playwright test`). Deep click-through flows (approve via the UI, invite via the UI) are still manual.
 3. **Cryptographic enforcement of approvals (Forseti).** This is Phase 2 in the spec, explicitly not an MVP item. Approvals are labelled APP-LEVEL APPROVAL ONLY.
 4. **Hardening before any non-local deployment:**
-   - Restrict MinIO CORS (currently `*`).
+   - Set `MINIO_CORS_ALLOW_ORIGIN` to the real app origin. Locally it is already restricted to `localhost:3000,3200` (fixed 16:35).
    - Use a shared rate-limit store instead of in-memory.
    - Anchor the audit chain externally.
 
