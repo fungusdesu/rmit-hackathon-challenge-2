@@ -134,6 +134,13 @@ model Asset {
   name               String
   sensitivity        String?
   managedMode        AssetManagedMode @default(INVENTORY_ONLY)
+  criticality        String           @default("MEDIUM")
+  businessOwner      String?
+  custodians         Json             @default("[]")
+  adminContacts      Json             @default("[]")
+  reviewDate         DateTime?
+  recoveryPlan       String?
+  notes              String?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
