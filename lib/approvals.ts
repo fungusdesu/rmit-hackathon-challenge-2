@@ -55,7 +55,7 @@ export function parseActionInput(body: unknown): { operationType: ProtectedOpera
   };
 }
 
-async function appendAudit(
+export async function appendAudit(
   tx: Prisma.TransactionClient,
   organizationId: string,
   actorId: string | null,
