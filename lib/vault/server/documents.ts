@@ -23,6 +23,7 @@ import { generateObjectKey } from "@/lib/storage/keys";
 import { DOWNLOAD_ANOMALY_WINDOW_SECONDS, recordDownload } from "./download-monitor";
 import { maybeSweepExpiredUploads } from "./maintenance";
 import { enforceRateLimit } from "./rate-limit";
+import { assertVaultIds } from "./validation";
 
 type DocumentWithOwner = Document & { owner: Pick<User, "displayName"> };
 
@@ -50,7 +51,8 @@ function auditPayload(doc: Pick<Document, "id" | "size" | "classification" | "ci
   return { documentId: doc.id, size: doc.size, classification: doc.classification, ciphertextFormat: doc.ciphertextFormat };
 }
 
-async function requireMember(organizationId: string, principal: Principal): Promise<Membership> {
+export async function requireMember(organizationId: string, principal: Principal): Promise<Membership> {
+  assertVaultIds(organizationId);
   const membership = await getMembership(organizationId, principal);
   if (!membership) throw new VaultError("not_found");
   return membership;
@@ -59,7 +61,7 @@ async function requireMember(organizationId: string, principal: Principal): Prom
 const ownerInclude = { owner: { select: { displayName: true } } } as const;
 
 async function findVisible(organizationId: string, membership: Membership, documentId: string): Promise<DocumentWithOwner> {
-  if (typeof documentId !== "string" || documentId.length === 0 || documentId.length > 64) throw new VaultError("not_found");
+  assertVaultIds(documentId);
   const doc = await db.document.findFirst({ where: { id: documentId, organizationId }, include: ownerInclude });
   if (!doc) throw new VaultError("not_found");
   if (doc.status === DocumentStatus.REJECTED) throw new VaultError("not_found");
@@ -81,6 +83,7 @@ export async function listDocuments(organizationId: string, principal: Principal
 }
 
 export async function getDocument(organizationId: string, principal: Principal, documentId: string): Promise<DocumentMetadata> {
+  assertVaultIds(organizationId, documentId);
   const membership = await requireMember(organizationId, principal);
   return toDocumentMetadata(await findVisible(organizationId, membership, documentId));
 }
@@ -139,6 +142,7 @@ async function rejectDocument(organizationId: string, actorId: string, doc: Docu
 }
 
 export async function commitUpload(organizationId: string, principal: Principal, documentId: string): Promise<DocumentMetadata> {
+  assertVaultIds(organizationId, documentId);
   const membership = await requireMember(organizationId, principal);
   const doc = await findVisible(organizationId, membership, documentId);
   if (doc.ownerId !== membership.userId) throw new VaultError("forbidden");
@@ -174,6 +178,7 @@ export async function commitUpload(organizationId: string, principal: Principal,
 }
 
 export async function issueDownload(organizationId: string, principal: Principal, documentId: string) {
+  assertVaultIds(organizationId, documentId);
   const membership = await requireMember(organizationId, principal);
   const doc = await findVisible(organizationId, membership, documentId);
   if (membership.role === MembershipRole.AUDITOR) throw new VaultError("forbidden");

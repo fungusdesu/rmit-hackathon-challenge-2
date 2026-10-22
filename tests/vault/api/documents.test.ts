@@ -1,6 +1,6 @@
 import "./db-env";
 import { createHash, randomUUID } from "node:crypto";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MembershipRole, MembershipStatus } from "@prisma/client";
 import type { Principal } from "@/lib/auth/types";
 import { db } from "@/lib/db";
@@ -195,6 +195,28 @@ describe.skipIf(process.env.VAULT_IT !== "1")("vault documents service", () => {
   it("download of pending doc is invalid_state", async () => {
     const { init } = await uploadAs(p.member);
     await expectCode(issueDownload(orgId, p.member, init.document.id), "invalid_state");
+  });
+
+  it("malformed ids are not_found before any DB query", async () => {
+    const membershipSpy = vi.spyOn(db.membership, "findFirst");
+    const documentSpy = vi.spyOn(db.document, "findFirst");
+    try {
+      const bad = ["", "a".repeat(65), "../x", "id with space", "x%00", "é"];
+      for (const id of bad) {
+        await expectCode(listDocuments(id, p.owner), "not_found");
+        await expectCode(getDocument(orgId, p.owner, id), "not_found");
+        await expectCode(getDocument(id, p.owner, "abc"), "not_found");
+        await expectCode(commitUpload(orgId, p.owner, id), "not_found");
+        await expectCode(issueDownload(orgId, p.owner, id), "not_found");
+        await expectCode(initUpload(id, p.owner, request(new Uint8Array([1]))), "not_found");
+      }
+      await expectCode(getDocument(orgId, p.owner, 42 as unknown as string), "not_found");
+      expect(membershipSpy).not.toHaveBeenCalled();
+      expect(documentSpy).not.toHaveBeenCalled();
+    } finally {
+      membershipSpy.mockRestore();
+      documentSpy.mockRestore();
+    }
   });
 
   it("rate limits download", async () => {

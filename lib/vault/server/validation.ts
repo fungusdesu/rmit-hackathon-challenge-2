@@ -23,6 +23,17 @@ const KEYS = [
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
+const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+export function isValidVaultId(value: unknown): value is string {
+  return typeof value === "string" && ID_PATTERN.test(value);
+}
+
+/** Malformed ids are indistinguishable from unknown ones, and are rejected before any DB query. */
+export function assertVaultIds(...ids: unknown[]): void {
+  for (const id of ids) if (!isValidVaultId(id)) throw new VaultError("not_found");
+}
+
 function includes<T extends string>(list: readonly T[], value: unknown): value is T {
   return typeof value === "string" && (list as readonly string[]).includes(value);
 }
