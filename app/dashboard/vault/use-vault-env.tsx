@@ -1,7 +1,7 @@
 "use client";
 
 import { useTideCloak } from "@tidecloak/nextjs";
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { TIDE_VAULT_ROLES } from "@/lib/vault/contracts";
 import type { VaultCipher } from "@/lib/vault/client/cipher";
 import { createTideVaultCipher } from "@/lib/vault/client/tide-cipher";
@@ -23,6 +23,14 @@ export type TideEnv = {
 // Only call inside TideCloakProvider (i.e. when IS_TIDE).
 export function useTideEnv(): TideEnv {
   const tc = useTideCloak();
+  const tcRef = useRef(tc);
+  useEffect(() => { tcRef.current = tc; });
+  // Stable identity so the API client is not rebuilt every render.
+  // Refresh first (this also rewrites the kcToken cookie the proxy reads), then send as Bearer.
+  const getToken = useCallback(async () => {
+    try { await tcRef.current.refreshToken(); } catch { /* fall back to the current token */ }
+    return tcRef.current.getToken();
+  }, []);
   const cipher = useMemo(() => createTideVaultCipher({ doEncrypt: (d) => tc.doEncrypt(d), doDecrypt: (d) => tc.doDecrypt(d) }), [tc]);
   let subject: string | null = null;
   try { subject = tc.authenticated ? (tc.getValueFromToken("sub") as string | null) ?? null : null; } catch { subject = null; }
@@ -31,7 +39,7 @@ export function useTideEnv(): TideEnv {
     ready: !tc.isInitializing,
     authenticated: tc.authenticated,
     cipher,
-    getToken: () => tc.getToken(),
+    getToken,
     roles: { encrypt: has(TIDE_VAULT_ROLES.encrypt), decrypt: has(TIDE_VAULT_ROLES.decrypt) },
     subject,
     raw: { doEncrypt: (d) => tc.doEncrypt(d), doDecrypt: (d) => tc.doDecrypt(d) },
