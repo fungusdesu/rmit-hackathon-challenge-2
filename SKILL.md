@@ -238,6 +238,14 @@ The next implementation slice is:
 5. Add security-focused automated tests for IDOR, self-approval, replay, expiry, payload mutation, and race conditions.
 6. Integrate the browser-side encrypted vault after Tide E2EE capability validation.
 
+### 2026-10-22: Project synchronization and live overview
+
+- Reconciled the attached product brief with the current repository and added status, architecture, implementation, Tide setup, and security-model documents under `docs/`.
+- Kept frontend changes within `app/dashboard/**` and `app/globals.css`; existing server authorization and Prisma schema were not changed.
+- Replaced dashboard preview metrics with tenant-scoped organization summary and request API data, added first-organization creation, and added a request review screen showing exact payload and `APP-LEVEL APPROVAL ONLY` before decisions.
+- Removed links to pages that do not yet exist and labeled planned areas in the navigation.
+- Browser login, Tide E2EE, independent action proof, invitation flow, and automated security tests remain to be completed by their respective tracks.
+
 ## Task Log
 
 ### 2026-10-22: Repository bootstrap
