@@ -5,3 +5,15 @@ node_modules
 .env
 .env.*
 !.env.example
+# Local-only material: agent worktrees (each with node_modules), Tide realm data/adapters, ad-hoc env files, test output
+.claude
+tidecloak-setup
+tidecloak-data
+env
+env.download
+NEXT_STEPS.md
+GEMINI_PROMPT.md
+tests/e2e/artifacts
+test-results
+playwright-report
+tsconfig.tsbuildinfo
