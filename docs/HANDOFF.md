@@ -1,6 +1,8 @@
 # BusinessVault — Handoff & Resume Guide
 
-Written 2026-10-22 16:16 (local, UTC+7) in case the working session runs out. Target: a functional MVP **pushed to `main` by 17:00**.
+Written 2026-10-22 16:16, updated 16:22 (local, UTC+7) in case the working session runs out.
+
+> **16:22 update: all 6 agent branches are merged into `feat/mvp-complete`.** Windows checks: typecheck clean, 215 tests pass, production build passes, all 8 dashboard pages render. A fix was added for downgrading a CRITICAL asset. Remaining step: the Linux-in-Docker test run, then push to `main` (§4, step 5). Target: a functional MVP **pushed to `main` by 17:00**.
 
 If you're picking this up, read §1 to see where things stand, then follow §4.
 
@@ -20,12 +22,12 @@ All of them branch from `feat/mvp-complete` @ `ecd5181`.
 
 | Module | Branch | Owns (files) | Status at 16:16 |
 |---|---|---|---|
-| Approvals inbox + My requests | `worktree-agent-aaa59283565e7f54a` | `app/dashboard/approvals/**`, `app/dashboard/requests/**`, `tests/ui/approvals/**` | running |
-| Members & invitations | `worktree-agent-ac1ebf27541bdfcf6` | `app/dashboard/members/**`, `tests/ui/members/**` | running |
-| Asset registry (API + UI + migration) | `worktree-agent-af6f51546203a61e0` | `prisma/schema.prisma` (Asset only), `prisma/migrations/20261022160000_asset_registry_fields/**`, `lib/assets/**`, `app/api/organizations/[organizationId]/assets/**`, `app/dashboard/assets/**`, `tests/assets/**` | running |
-| Audit log + chain verify + export | `worktree-agent-a66ac3ff801a85483` | `lib/audit-verify.ts`, `app/api/organizations/[organizationId]/audit/verify|export/**`, `app/dashboard/audit/**`, `tests/audit/**` | **done** (`3674bd4`). tsc, unit tests and build pass; DB test not yet run (Docker was down) |
-| Settings, policies, system health | `worktree-agent-aa6991e4e82c1f421` | `app/dashboard/settings/**`, `app/api/system/health/**`, `lib/system-health.ts`, `tests/settings/**` | running |
-| Overview, shell, Windows + Linux runbook | `worktree-agent-ad0ce5db5f492ad0e` | `app/dashboard/page.tsx`, `layout.tsx`, `use-workspace.ts`, `feature-preview.tsx`, `[feature]/page.tsx`, `compose.yaml`, `compose.linux-host.yaml`, `.env.example`, `README.md`, `scripts/dev/**`, `docs/RUNBOOK.md`, `package.json` (scripts only), `tests/dev/**` | running |
+| Approvals inbox + My requests | `worktree-agent-aaa59283565e7f54a` | `app/dashboard/approvals/**`, `app/dashboard/requests/**`, `tests/ui/approvals/**` | **merged** |
+| Members & invitations | `worktree-agent-ac1ebf27541bdfcf6` | `app/dashboard/members/**`, `tests/ui/members/**` | **merged** |
+| Asset registry (API + UI + migration) | `worktree-agent-af6f51546203a61e0` | `prisma/schema.prisma` (Asset only), `prisma/migrations/20261022160000_asset_registry_fields/**`, `lib/assets/**`, `app/api/organizations/[organizationId]/assets/**`, `app/dashboard/assets/**`, `tests/assets/**` | **merged** |
+| Audit log + chain verify + export | `worktree-agent-a66ac3ff801a85483` | `lib/audit-verify.ts`, `app/api/organizations/[organizationId]/audit/verify|export/**`, `app/dashboard/audit/**`, `tests/audit/**` | **merged** (`3674bd4`); DB test fixed and passing |
+| Settings, policies, system health | `worktree-agent-aa6991e4e82c1f421` | `app/dashboard/settings/**`, `app/api/system/health/**`, `lib/system-health.ts`, `tests/settings/**` | **merged** |
+| Overview, shell, Windows + Linux runbook | `worktree-agent-ad0ce5db5f492ad0e` | `app/dashboard/page.tsx`, `layout.tsx`, `use-workspace.ts`, `feature-preview.tsx`, `[feature]/page.tsx`, `compose.yaml`, `compose.linux-host.yaml`, `.env.example`, `README.md`, `scripts/dev/**`, `docs/RUNBOOK.md`, `package.json` (scripts only), `tests/dev/**` | **merged** |
 
 Files never overlap between agents, so merges should be conflict-free. The exceptions are `package.json` (only the overview/runbook agent touches its scripts) and `README.md`.
 
