@@ -250,6 +250,15 @@ The next implementation slice is:
 
 ## Task Log
 
+### 2026-10-22: Governance lifecycle implementation
+
+- Added invitation creation, listing, revocation, and single-use acceptance with hashed tokens and verified-email matching.
+- Added three-owner governance activation and protected privileged invitation, membership, and policy operations.
+- Rechecked current approver eligibility and request digests at execution; owner removal excludes the target from voting and preserves three active owners.
+- Added tenant-scoped member, policy, and audit APIs, plus PostgreSQL-backed HTTP governance tests.
+- Kept the explicit `APP-LEVEL APPROVAL ONLY` boundary; the audit hash chain is not independently anchored.
+- Build, TypeScript, Prisma validation, Compose config, migration deployment, and the PostgreSQL-backed governance HTTP suite passed using the local default Docker context.
+
 ### 2026-10-22: Repository bootstrap
 
 - Learned that the repository initially contained only the product specification.

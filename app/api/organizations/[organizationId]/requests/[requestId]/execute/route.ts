@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authErrorResponse } from "@/lib/auth/errors";
 import { requirePrincipal } from "@/lib/auth/server";
 import { executeActionRequest } from "@/lib/approvals";
+import { governanceErrorResponse } from "@/lib/governance-error";
 
 export async function POST(request: NextRequest, context: { params: Promise<{ organizationId: string; requestId: string }> }) {
   try {
     const principal = await requirePrincipal(request);
     const { organizationId, requestId } = await context.params;
-    return NextResponse.json({ execution: await executeActionRequest(organizationId, requestId, principal), enforcement: "APP-LEVEL APPROVAL ONLY" });
+    const result = await executeActionRequest(organizationId, requestId, principal);
+    return NextResponse.json({ execution: result.execution, ...(result.invitationToken ? { acceptanceUrl: `${request.nextUrl.origin}/invitations/accept#token=${result.invitationToken}` } : {}), enforcement: "APP-LEVEL APPROVAL ONLY" }, { status: result.execution.status === "FAILED" ? 409 : 200 });
   } catch (error) {
-    return authErrorResponse(error) ?? NextResponse.json({ error: error instanceof Error ? error.message : "internal_error" }, { status: 409 });
+    return governanceErrorResponse(error);
   }
 }
