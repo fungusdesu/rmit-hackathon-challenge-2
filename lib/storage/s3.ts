@@ -1,4 +1,4 @@
-import { CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { CopyObjectCommand, CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { StorageUnavailableError, type ObjectStorage } from "./types";
@@ -106,6 +106,14 @@ export function createS3Storage(): ObjectStorage {
         const object = await internal.send(new GetObjectCommand({ Bucket: config.bucket, Key: objectKey }));
         if (!object.Body) throw new StorageUnavailableError("Object storage returned no body");
         return await object.Body.transformToByteArray();
+      } catch (error) {
+        unavailable(error);
+      }
+    },
+    async copyObject(sourceKey, destinationKey) {
+      const { config, internal } = await ensureBucket();
+      try {
+        await internal.send(new CopyObjectCommand({ Bucket: config.bucket, CopySource: `${config.bucket}/${sourceKey}`, Key: destinationKey, ContentType: "application/octet-stream", MetadataDirective: "REPLACE" }));
       } catch (error) {
         unavailable(error);
       }

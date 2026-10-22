@@ -17,6 +17,8 @@ export interface ObjectStorage {
   /** Returns null when the object does not exist. */
   headObject(objectKey: string): Promise<ObjectHead | null>;
   getObjectBytes(objectKey: string): Promise<Uint8Array>;
+  /** Server-side copy; used to move committed ciphertext to a key no upload policy can write. */
+  copyObject(sourceKey: string, destinationKey: string): Promise<void>;
   deleteObject(objectKey: string): Promise<void>;
 }
 
