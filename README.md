@@ -50,6 +50,65 @@ curl -X POST http://localhost:3000/api/organizations \
 
 The API is only available with `AUTH_MODE=development` in the local Compose profile.
 
+## Approval workflow
+
+The first protected operation is `REMOVE_OWNER`. A request is bound to a canonical payload
+digest and an idempotency key. Approvals are distinct, policy-scoped, and cannot be issued
+by the requester. Once the configured quorum is reached, execution claims the request in a
+transaction and prevents a second execution.
+
+Current approval endpoints:
+
+```text
+POST /api/organizations/:organizationId/requests
+GET  /api/organizations/:organizationId/requests
+POST /api/organizations/:organizationId/requests/:requestId/approve
+POST /api/organizations/:organizationId/requests/:requestId/reject
+POST /api/organizations/:organizationId/requests/:requestId/cancel
+POST /api/organizations/:organizationId/requests/:requestId/execute
+```
+
+These approvals are currently `APP-LEVEL APPROVAL ONLY`. They are not a cryptographic
+guarantee against a compromised application server until a verified Tide authorization
+proof is bound to the final executor.
+
+## TideCloak integration
+
+The repository now uses the verified `@tidecloak/nextjs@0.14.40` APIs for:
+
+- `TideCloakProvider`
+- `createTideCloakProxy`
+- `verifyTideCloakToken`
+
+The live integration is enabled only when the Tide variables are configured. For a local
+Tide development server, follow the current vendor setup guide, complete realm enrollment,
+activate the development license, enable QEA, and configure the BusinessVault client with:
+
+```dotenv
+AUTH_MODE=tidecloak
+NEXT_PUBLIC_AUTH_MODE=tidecloak
+TIDECLOAK_AUTH_SERVER_URL=http://localhost:8080
+TIDECLOAK_REALM=nextjs-test
+TIDECLOAK_CLIENT_ID=myclient
+NEXT_PUBLIC_TIDECLOAK_AUTH_SERVER_URL=http://localhost:8080
+NEXT_PUBLIC_TIDECLOAK_REALM=nextjs-test
+NEXT_PUBLIC_TIDECLOAK_CLIENT_ID=myclient
+NEXT_PUBLIC_TIDECLOAK_REDIRECT_URI=http://localhost:3000/auth/redirect
+```
+
+Because `NEXT_PUBLIC_*` values are embedded during the Next.js build, rebuild after changing
+them:
+
+```bash
+docker compose build --no-cache
+docker compose up
+```
+
+The application protects dashboard and organization API routes through the TideCloak
+proxy and independently verifies the access token at the API boundary. No Tide realm or
+credentials are stored in this repository. Forseti authorization and Tide E2EE document
+encryption remain pending real realm capability testing.
+
 Stop the stack:
 
 ```bash

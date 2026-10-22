@@ -203,17 +203,19 @@ Completed:
 - Initial Prisma migration generated and applied automatically by Compose
 - Explicit development-only authentication adapter added
 - Organization listing, creation, detail, and membership endpoints added
+- Canonical action payloads, SHA-256 request digests, policy snapshots, and idempotency handling added
+- Approval, rejection, cancellation, and exactly-once owner-removal execution routes added
+- Verified `@tidecloak/nextjs@0.14.40` APIs wired for provider, proxy, and server token validation
+- Tide public build arguments separated from runtime server configuration
 - README and environment defaults added
 
 Not completed:
 
 - TideCloak authentication
-- Verified JWT middleware and API authorization
-- TideCloak token verification is not yet connected
+- Live TideCloak realm validation and login test
+- TideCloak E2EE round-trip test
 - Invitation acceptance flow
-- Action request state machine API
-- Quorum approval enforcement
-- Exactly-once protected executor
+- Configurable policy management API
 - Browser-side Tide E2EE vault flow
 - S3/MinIO ciphertext upload flow
 - Audit API and independent anchoring
@@ -230,11 +232,10 @@ The next implementation slice is:
 
 1. Add a Tide integration capability report and explicit adapter interfaces.
 2. Add verified server authentication middleware or document the blocker.
-3. Add organization and membership service functions with tenant checks.
-4. Commit the initial Prisma migration after starting PostgreSQL.
-5. Add request creation, canonicalization, digesting, and policy snapshot logic.
-6. Add approval and rejection endpoints with unique constraints and transactions.
-7. Add security-focused tests for IDOR, self-approval, replay, expiry, payload mutation, and race conditions.
+3. Add invitation creation, acceptance, expiry, and revocation.
+4. Add policy management with protected policy changes.
+5. Add security-focused automated tests for IDOR, self-approval, replay, expiry, payload mutation, and race conditions.
+6. Integrate the browser-side encrypted vault after Tide E2EE capability validation.
 
 ## Task Log
 
@@ -282,3 +283,25 @@ The next implementation slice is:
 - Verified an outsider receives an empty organization list and cannot use another organization's membership endpoint.
 - Added a Compose migration service that waits for PostgreSQL health before starting the app.
 - Learned that `NODE_ENV` can be compile-time inlined by Next.js; runtime development auth therefore uses an explicit opt-in flag instead of relying only on `NODE_ENV`.
+
+### 2026-10-22: Approval workflow
+
+- Added canonical JSON normalization and SHA-256 payload digests.
+- Added `REMOVE_OWNER` request creation and listing routes.
+- Added request-specific approval, rejection, cancellation, and execution routes.
+- Added policy snapshots, expiry checks, requester self-approval prevention, unique approver constraints, and serializable approval transactions.
+- Added transaction claim-before-execute behavior to prevent duplicate execution.
+- Added audit events for request, approval, rejection, cancellation, and execution transitions.
+- Verified local end-to-end behavior: self-approval rejected, two distinct owner approvals authorized the request, owner removal executed once, and a second execution was rejected.
+- Kept every response explicitly labeled `APP-LEVEL APPROVAL ONLY` because Tide cryptographic enforcement is not connected.
+
+### 2026-10-22: TideCloak integration boundary
+
+- Verified the published `@tidecloak/nextjs@0.14.40` package and its documented exports.
+- Added `TideCloakProvider` for App Router client state.
+- Added `/auth/login` and `/auth/redirect` flows using `useTideCloak`.
+- Added Next.js 16 `proxy.ts` protection for dashboard and organization API routes.
+- Added server-side `verifyTideCloakToken` validation using issuer, client, signature, and expiry checks supplied by the SDK.
+- Added runtime environment configuration for server values and build-time public client values.
+- Learned that top-level proxy configuration can be evaluated during build; Tide configuration is therefore resolved inside the proxy request function.
+- Verified the SDK integration boundary builds successfully, but no live Tide realm credentials are present, so live login and E2EE remain unverified.

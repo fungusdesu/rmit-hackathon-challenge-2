@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
+import { verifyTideCloakToken } from "@tidecloak/nextjs/server";
 import type { Principal } from "./types";
+import { getTideConfig } from "@/lib/tide/config";
 
 export class AuthConfigurationError extends Error {}
 export class AuthenticationError extends Error {}
@@ -28,9 +30,22 @@ export async function requirePrincipal(request: NextRequest): Promise<Principal>
   if (mode === "development") return developmentPrincipal(request);
 
   if (mode === "tidecloak") {
-    throw new AuthConfigurationError(
-      "TideCloak authentication is not configured. Set AUTH_MODE=development only for local development.",
-    );
+    const config = getTideConfig();
+    if (!config) throw new AuthConfigurationError("TideCloak is not configured");
+    const cookieToken = request.cookies.get("kcToken")?.value;
+    const bearerToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+    const token = cookieToken ?? bearerToken;
+    if (!token) throw new AuthenticationError("A TideCloak access token is required");
+    const payload = await verifyTideCloakToken(config, token);
+    if (!payload) throw new AuthenticationError("TideCloak token verification failed");
+    const subject = typeof payload.sub === "string" ? payload.sub : null;
+    if (!subject) throw new AuthenticationError("Verified TideCloak token has no subject");
+    return {
+      subject,
+      displayName: typeof payload.name === "string" ? payload.name : typeof payload.preferred_username === "string" ? payload.preferred_username : subject,
+      email: typeof payload.email === "string" ? payload.email : null,
+      source: "tidecloak",
+    };
   }
 
   throw new AuthConfigurationError(`Unsupported AUTH_MODE: ${mode}`);

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { TideProvider } from "./tide-provider";
 
 export const metadata: Metadata = {
   title: "BusinessVault",
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><TideProvider>{children}</TideProvider></body>
     </html>
   );
 }

@@ -16,7 +16,7 @@ export default function Home() {
           <a href="#status">Status</a>
         </nav>
         <div className="nav-actions">
-          <a className="sign-in" href="#signin">Sign in</a>
+          <a className="sign-in" href="/auth/login">Sign in</a>
           <a className="button button-small" href="#access">Request access <span aria-hidden="true">↗</span></a>
         </div>
       </header>

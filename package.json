@@ -11,8 +11,9 @@
     "db:migrate": "prisma migrate dev"
   },
   "dependencies": {
-    "next": "16.4.2",
     "@prisma/client": "6.19.0",
+    "@tidecloak/nextjs": "^0.14.40",
+    "next": "16.4.2",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },

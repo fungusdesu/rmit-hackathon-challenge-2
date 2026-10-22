@@ -33,6 +33,7 @@ export async function createOrganization(principal: Principal, input: { name: st
       description: input.description,
       setupStatus: "INITIALIZING",
       memberships: { create: { userId: user.id, role: MembershipRole.OWNER, status: MembershipStatus.ACTIVE, joinedAt: new Date() } },
+      policies: { create: { operationType: "REMOVE_OWNER", requiredApprovals: 2, eligibleRoles: [MembershipRole.OWNER], forbidSelfApproval: true, ttlSeconds: 86400, version: 1 } },
     },
     include: { memberships: { include: { user: true } } },
   });
