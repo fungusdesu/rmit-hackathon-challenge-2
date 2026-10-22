@@ -1,4 +1,4 @@
-// Seeds a clean demo organization through the real APIs (development auth mode only).
+// Seeds a clean demo organization through the real APIs (AUTH_MODE=development or tidecloak-sim).
 // Usage: node scripts/dev/seed-demo.mjs [baseUrl]   (default http://localhost:3000)
 // Idempotent: reuses an existing ACTIVE "Northstar Labs (demo)" owned by demo-alice.
 
@@ -12,10 +12,24 @@ const P = {
   erin: { subject: "demo-erin", name: "Erin (auditor)", email: "erin@northstar.test" },
 };
 
+// In simulated TideCloak mode each persona signs in like a real user and calls the API with its Bearer token.
+const tokens = new Map();
+let simulated;
+async function authHeaders(persona) {
+  const username = persona.subject.replace(/^demo-/, "");
+  if (simulated !== false && !tokens.has(username)) {
+    const res = await fetch(`${BASE}/api/auth/sim`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username }) });
+    simulated = res.ok;
+    if (res.ok) tokens.set(username, (await res.json()).access_token);
+  }
+  if (tokens.has(username)) return { authorization: `Bearer ${tokens.get(username)}` };
+  return { "x-dev-user-subject": persona.subject, "x-dev-user-name": persona.name, "x-dev-user-email": persona.email };
+}
+
 async function call(persona, method, path, body) {
   const response = await fetch(`${BASE}${path}`, {
     method,
-    headers: { "content-type": "application/json", "x-dev-user-subject": persona.subject, "x-dev-user-name": persona.name, "x-dev-user-email": persona.email },
+    headers: { "content-type": "application/json", ...(await authHeaders(persona)) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = await response.json().catch(() => ({}));

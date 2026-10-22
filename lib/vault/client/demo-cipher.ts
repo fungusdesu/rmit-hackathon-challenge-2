@@ -1,3 +1,4 @@
+import { usesLocalCipher } from "@/lib/auth/types";
 import { DEMO_CIPHERTEXT_FORMAT } from "@/lib/vault/contracts";
 import { frame, fromBase64, toBase64, unframe } from "./bytes";
 import type { VaultCipher } from "./cipher";
@@ -37,7 +38,7 @@ const enc = new TextEncoder();
 const dec = new TextDecoder();
 
 export function createDemoVaultCipher(keyStore?: DemoKeyStore): VaultCipher {
-  if (process.env.NEXT_PUBLIC_AUTH_MODE !== "development") throw new Error("demo_cipher_disabled");
+  if (!usesLocalCipher(process.env.NEXT_PUBLIC_AUTH_MODE)) throw new Error("demo_cipher_disabled");
   const ks = keyStore ?? indexedDbKeyStore();
   let pending: Promise<CryptoKey> | undefined;
   const key = () => (pending ??= (async () => {

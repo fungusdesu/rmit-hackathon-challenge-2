@@ -6,7 +6,7 @@ import type { Principal } from "@/lib/auth/types";
 
 const who = (): Principal => {
   const subject = `asset-it-${randomUUID()}`;
-  return { subject, displayName: subject.slice(0, 20), email: null, emailVerified: false, source: "development" };
+  return { subject, displayName: subject.slice(0, 20), email: null, emailVerified: false, source: "development", roles: ["_tide_enabled", "_tide_vault.selfencrypt", "_tide_vault.selfdecrypt"] };
 };
 
 describe.skipIf(process.env.VAULT_IT !== "1")("asset service (real Postgres)", async () => {

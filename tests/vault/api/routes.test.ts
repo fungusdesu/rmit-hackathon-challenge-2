@@ -31,7 +31,7 @@ const getDoc = await import("@/app/api/organizations/[organizationId]/documents/
 
 const who = (): Principal => {
   const subject = `vault-route-${randomUUID()}`;
-  return { subject, displayName: subject.slice(0, 20), email: null, emailVerified: false, source: "development" };
+  return { subject, displayName: subject.slice(0, 20), email: null, emailVerified: false, source: "development", roles: ["_tide_enabled", "_tide_vault.selfencrypt", "_tide_vault.selfdecrypt"] };
 };
 
 function req(body?: string) {

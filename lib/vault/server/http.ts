@@ -17,7 +17,10 @@ export function json(data: unknown, status = 200) {
 
 export function vaultErrorResponse(error: unknown) {
   const auth = authErrorResponse(error);
-  if (auth) return json({ error: auth.status === 401 ? "unauthorized" : "authentication_not_configured" }, auth.status);
+  if (auth) {
+    if (auth.status === 403) return json({ error: "forbidden", message: error instanceof Error ? error.message : undefined }, 403);
+    return json({ error: auth.status === 401 ? "unauthorized" : "authentication_not_configured" }, auth.status);
+  }
   if (error instanceof VaultError) return json({ error: error.code }, error.status);
   if (error instanceof StorageUnavailableError) return json({ error: "storage_unavailable" }, VAULT_ERRORS.storage_unavailable);
   return json({ error: "internal_error" }, VAULT_ERRORS.internal_error);

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTideCloak } from "@tidecloak/nextjs";
 import Icon from "../../components/ui-icon";
+import { SIM_USERS } from "@/lib/auth/sim/realm";
 
 const ERROR_MESSAGES: Record<string, string> = {
   authentication_failed: "Authentication was cancelled or could not be completed. Please try again.",
@@ -19,6 +20,10 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     setErrorCode(params.get("error"));
   }, []);
+
+  if (process.env.NEXT_PUBLIC_AUTH_MODE === "tidecloak-sim") {
+    return <SimTideLogin errorCode={errorCode} />;
+  }
 
   if (!enabled) {
     return <DevLogin errorCode={errorCode} />;
@@ -161,6 +166,68 @@ function TideLogin({ errorCode }: { errorCode: string | null }) {
       <div className="auth-footer-links">
         <Link href="/">← Return home</Link>
         <Link href="/invitations/accept">Have an invite token?</Link>
+      </div>
+    </AuthShell>
+  );
+}
+
+function SimTideLogin({ errorCode }: { errorCode: string | null }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function signIn(username: string) {
+    setBusy(username);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/sim", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message ?? data.error ?? `Sign-in failed (${res.status}).`);
+      window.sessionStorage.removeItem("businessvault-organization");
+      window.location.assign("/dashboard");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Sign-in failed.");
+      setBusy(null);
+    }
+  }
+
+  return (
+    <AuthShell
+      badge="TideCloak · simulated"
+      title="Sign in with Tide."
+      subtitle="Choose a realm account. A local stand-in for TideCloak issues a signed token with Tide's claims and roles, and the server verifies it exactly as it would a live realm's."
+      errorCode={errorCode}
+    >
+      <ul className="sim-accounts" aria-label="Realm accounts">
+        {SIM_USERS.map(user => (
+          <li key={user.username}>
+            <button type="button" className="sim-account" disabled={busy !== null} onClick={() => void signIn(user.username)}>
+              <span className="sim-avatar" aria-hidden="true">{user.name[0]}</span>
+              <span className="sim-account-text">
+                <strong>{busy === user.username ? "Signing in…" : user.name}</strong>
+                <small>{user.hint}</small>
+              </span>
+              <span className="sim-roles">
+                {user.realmRoles.length ? user.realmRoles.map(role => <code key={role}>{role}</code>) : <code className="sim-role-missing">no realm roles</code>}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {error && (
+        <div className="auth-alert" role="alert">
+          <Icon name="shield" size={16} />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <p className="sim-note">Simulation: no Tide enclave or threshold cryptography runs here. Set AUTH_MODE=tidecloak to use the live realm.</p>
+
+      <div className="auth-footer-links">
+        <a className="auth-return-link" href="/">
+          Return home <span aria-hidden="true">→</span>
+        </a>
+        <Link href="/invitations/accept">Accept invitation</Link>
       </div>
     </AuthShell>
   );

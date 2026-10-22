@@ -70,7 +70,7 @@ describe.skipIf(process.env.VAULT_IT !== "1")("db integration", async () => {
   const { appendAudit } = await import("@/lib/audit");
   const { verifyAuditChain, verifyAuditForPrincipal, exportAuditForPrincipal } = await import("@/lib/audit-verify");
   const suffix = randomUUID().slice(0, 8);
-  const p = (name: string) => ({ subject: `audit-${suffix}-${name}`, displayName: name, email: null, emailVerified: false, source: "development" as const });
+  const p = (name: string) => ({ subject: `audit-${suffix}-${name}`, displayName: name, email: null, emailVerified: false, source: "development" as const, roles: ["_tide_enabled", "_tide_vault.selfencrypt", "_tide_vault.selfdecrypt"] });
   let orgId = "";
   afterAll(async () => { if (orgId) await db.organization.delete({ where: { id: orgId } }).catch(() => undefined); });
 

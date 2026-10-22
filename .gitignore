@@ -9,3 +9,6 @@ tidecloak-data/
 tidecloak-setup/
 PEER_HANDOFF*
 tsconfig.tsbuildinfo
+
+# Simulated TideCloak signing key (AUTH_MODE=tidecloak-sim)
+.tidecloak-sim/

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SIM_USERS } from "@/lib/auth/sim/realm";
 
 // Development-mode only: switch the dev-auth identity for the whole dashboard (demo filming, multi-user flows).
 // The server accepts these cookies only when AUTH_MODE=development and ALLOW_INSECURE_DEV_AUTH=true.
@@ -23,6 +24,42 @@ function setCookie(name: string, value: string) {
 }
 
 export default function DevUserSwitcher() {
+  if (process.env.NEXT_PUBLIC_AUTH_MODE === "tidecloak-sim") return <SimAccountSwitcher />;
+  return <DevCookieSwitcher />;
+}
+
+// Simulated TideCloak: switching account is a fresh sign-in, so the new token carries that user's roles.
+function SimAccountSwitcher() {
+  const [current, setCurrent] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    void fetch("/api/auth/session", { cache: "no-store" }).then(res => res.json()).then((data: { principal?: { subject?: string } }) => {
+      setCurrent(SIM_USERS.find(user => user.subject === data.principal?.subject)?.username ?? "");
+    }).catch(() => undefined);
+  }, []);
+
+  async function change(username: string) {
+    setError(null);
+    const res = await fetch("/api/auth/sim", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username }) });
+    if (!res.ok) { setError("Sign-in failed"); return; }
+    window.sessionStorage.removeItem("businessvault-organization");
+    window.location.reload();
+  }
+
+  return (
+    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto", fontSize: 13 }}>
+      <span style={{ fontFamily: "var(--font-mono, monospace)", color: "#2f6f4f" }}>TideCloak (sim) · signed in as</span>
+      <select value={current} onChange={event => void change(event.target.value)} aria-label="Simulated TideCloak account">
+        {!current && <option value="">Unknown account</option>}
+        {SIM_USERS.map(user => <option key={user.username} value={user.username}>{user.name}</option>)}
+      </select>
+      <a href="/auth/logout" style={{ fontSize: 12 }}>Sign out</a>
+      {error && <span role="alert" style={{ color: "#b42318" }}>{error}</span>}
+    </label>
+  );
+}
+
+function DevCookieSwitcher() {
   const [current, setCurrent] = useState("");
   useEffect(() => { setCurrent(readCookie("bv-dev-subject")); }, []);
   if (process.env.NEXT_PUBLIC_AUTH_MODE !== "development") return null;

@@ -8,7 +8,7 @@ import { createTideVaultCipher } from "@/lib/vault/client/tide-cipher";
 
 export const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE;
 export const IS_TIDE = AUTH_MODE === "tidecloak";
-export const IS_DEV = AUTH_MODE === "development";
+export const IS_DEV = AUTH_MODE === "development" || AUTH_MODE === "tidecloak-sim";
 
 export type TideEnv = {
   ready: boolean;

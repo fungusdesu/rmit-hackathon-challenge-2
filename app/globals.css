@@ -776,3 +776,67 @@ main { width: min(100% - 5.5rem, 86rem); margin: auto; }.hero { position: relati
     transition: none;
   }
 }
+
+/* Simulated TideCloak sign-in (AUTH_MODE=tidecloak-sim) */
+.sim-accounts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sim-account {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid rgba(162, 198, 160, 0.24);
+  border-radius: 8px;
+  background: rgba(24, 41, 30, 0.68);
+  color: #e4efe0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms var(--ease-snappy), transform 160ms var(--ease-snappy);
+}
+
+.sim-account:hover:not(:disabled) { border-color: rgba(162, 198, 160, 0.6); transform: translateY(-1px); }
+.sim-account:focus-visible { outline: 2px solid #9fd3a0; outline-offset: 2px; }
+.sim-account:disabled { opacity: 0.58; cursor: not-allowed; }
+
+.sim-avatar {
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(159, 211, 160, 0.16);
+  color: #9fd3a0;
+  font-weight: 600;
+}
+
+.sim-account-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
+.sim-account-text small { color: #8fa393; font-size: 12px; }
+
+.sim-roles { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.sim-roles code {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(159, 211, 160, 0.1);
+  color: #b7d8b5;
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+.sim-roles .sim-role-missing { background: rgba(240, 128, 112, 0.14); color: #f3a89b; }
+
+.sim-note { margin: 14px 0 0; color: #8fa393; font-size: 12px; line-height: 1.5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sim-account { transition: none; }
+  .sim-account:hover:not(:disabled) { transform: none; }
+}

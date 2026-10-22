@@ -78,5 +78,5 @@ export async function checkStorage(): Promise<HealthCheck> {
 
 export async function getSystemHealth(): Promise<SystemHealth> {
   const [database, storage, migrations] = await Promise.all([checkDatabase(), checkStorage(), checkMigrations()]);
-  return { authMode: process.env.AUTH_MODE === "development" ? "development" : "tide", appVersion: appVersion(), checkedAt: new Date().toISOString(), tide: checkTide(), database, storage, migrations };
+  return { authMode: process.env.AUTH_MODE === "development" ? "development" : process.env.AUTH_MODE === "tidecloak-sim" ? "tidecloak-sim" : "tide", appVersion: appVersion(), checkedAt: new Date().toISOString(), tide: checkTide(), database, storage, migrations };
 }

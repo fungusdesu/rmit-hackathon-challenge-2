@@ -1,7 +1,10 @@
 import { NextRequest } from "next/server";
-import { verifyTideCloakToken } from "@tidecloak/nextjs/server";
+import { verifyTideCloakToken } from "@tidecloak/verify";
 import type { Principal } from "./types";
 import { getTideConfig } from "@/lib/tide/config";
+import { simulatedTideConfig, simulationEnabled } from "./sim/issuer";
+import { TIDE_ENABLED_ROLE } from "./sim/realm";
+import { TIDE_VAULT_ROLES } from "@/lib/vault/contracts";
 
 export class AuthConfigurationError extends Error {}
 export class AuthenticationError extends Error {}
@@ -50,7 +53,31 @@ function developmentPrincipal(request: NextRequest): Principal {
     email: request.headers.get("x-dev-user-email") ?? cookie("bv-dev-email") ?? process.env.DEV_AUTH_EMAIL ?? null,
     emailVerified: request.headers.get("x-dev-user-email-verified") !== "false",
     source: "development",
+    roles: [TIDE_ENABLED_ROLE, TIDE_VAULT_ROLES.encrypt, TIDE_VAULT_ROLES.decrypt],
   };
+}
+
+/** Realm roles plus the client's own roles, as TideCloak puts them in an access token. */
+export function tokenRoles(payload: Record<string, unknown>, clientId: string): string[] {
+  const realm = (payload.realm_access as { roles?: unknown } | undefined)?.roles;
+  const client = ((payload.resource_access as Record<string, { roles?: unknown }> | undefined)?.[clientId])?.roles;
+  return [...new Set([...(Array.isArray(realm) ? realm : []), ...(Array.isArray(client) ? client : [])].filter((r): r is string => typeof r === "string"))];
+}
+
+/** Adapter config for the active Tide mode: the live realm, or the local simulation. */
+export function activeTideConfig(mode = process.env.AUTH_MODE ?? "tidecloak") {
+  if (mode === "tidecloak-sim") {
+    if (!simulationEnabled()) throw new AuthConfigurationError("Simulated TideCloak requires ALLOW_INSECURE_DEV_AUTH=true");
+    return simulatedTideConfig();
+  }
+  const config = getTideConfig();
+  if (!config) throw new AuthConfigurationError("TideCloak is not configured");
+  return config;
+}
+
+/** Server-side role check, after token verification (Tide invariant I-08: UI gating is not authorization). */
+export function requireTideRole(principal: Principal, role: string) {
+  if (!principal.roles.includes(role)) throw new AuthorizationError(`Your TideCloak account lacks the ${role} role.`);
 }
 
 export async function requirePrincipal(request: NextRequest): Promise<Principal> {
@@ -58,9 +85,8 @@ export async function requirePrincipal(request: NextRequest): Promise<Principal>
 
   if (mode === "development") return developmentPrincipal(request);
 
-  if (mode === "tidecloak") {
-    const config = getTideConfig();
-    if (!config) throw new AuthConfigurationError("TideCloak is not configured");
+  if (mode === "tidecloak" || mode === "tidecloak-sim") {
+    const config = activeTideConfig(mode);
     const cookieToken = request.cookies.get("kcToken")?.value;
     const bearerToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
     if (cookieToken && !bearerToken && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
@@ -77,12 +103,17 @@ export async function requirePrincipal(request: NextRequest): Promise<Principal>
     if (!payload) throw new AuthenticationError("TideCloak token verification failed");
     const subject = typeof payload.sub === "string" ? payload.sub : null;
     if (!subject) throw new AuthenticationError("Verified TideCloak token has no subject");
+    const roles = tokenRoles(payload, config.resource as string);
+    // Tide's gate role: every Tide-enabled realm user has it. TIDE_REQUIRED_ROLE="" disables the gate.
+    const gate = process.env.TIDE_REQUIRED_ROLE ?? TIDE_ENABLED_ROLE;
+    if (gate && !roles.includes(gate)) throw new AuthorizationError(`This account is not enabled for Tide (missing ${gate}).`);
     return {
       subject,
       displayName: typeof payload.name === "string" ? payload.name : typeof payload.preferred_username === "string" ? payload.preferred_username : subject,
       email: typeof payload.email === "string" ? payload.email : null,
       emailVerified: payload.email_verified === true,
-      source: "tidecloak",
+      source: mode,
+      roles,
     };
   }
 

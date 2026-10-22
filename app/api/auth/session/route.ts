@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
         displayName: principal.displayName,
         email: principal.email,
         source: principal.source,
+        roles: principal.roles,
       },
     });
   } catch (error) {

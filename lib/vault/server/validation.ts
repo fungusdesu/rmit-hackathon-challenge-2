@@ -1,3 +1,4 @@
+import { usesLocalCipher } from "@/lib/auth/types";
 import {
   ALLOWED_CONTENT_TYPES,
   CIPHERTEXT_FORMATS,
@@ -57,7 +58,7 @@ export function parseUploadInit(body: unknown): UploadInitRequest {
   if (typeof input.ciphertextSha256 !== "string" || !SHA256_HEX.test(input.ciphertextSha256)) throw new VaultError("invalid_request");
 
   if (!includes(CIPHERTEXT_FORMATS, input.ciphertextFormat)) throw new VaultError("invalid_request");
-  if (input.ciphertextFormat === DEMO_CIPHERTEXT_FORMAT && process.env.AUTH_MODE !== "development") {
+  if (input.ciphertextFormat === DEMO_CIPHERTEXT_FORMAT && !usesLocalCipher(process.env.AUTH_MODE)) {
     throw new VaultError("invalid_request");
   }
 

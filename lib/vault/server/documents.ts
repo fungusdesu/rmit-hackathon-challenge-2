@@ -1,3 +1,4 @@
+import { usesLocalCipher } from "@/lib/auth/types";
 import { createHash } from "node:crypto";
 import { DocumentStatus, MembershipRole, type Document, type Membership, type User } from "@prisma/client";
 import type { Principal } from "@/lib/auth/types";
@@ -61,7 +62,7 @@ export async function requireMember(organizationId: string, principal: Principal
 
 // F-04: demo (non-E2EE) documents are only ever served in development auth mode.
 function demoFormatAllowed() {
-  return process.env.AUTH_MODE === "development";
+  return usesLocalCipher(process.env.AUTH_MODE);
 }
 
 const ownerInclude ={ owner: { select: { displayName: true } } } as const;

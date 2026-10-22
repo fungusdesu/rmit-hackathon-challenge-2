@@ -14,7 +14,7 @@ import { resetDownloadMonitorForTests } from "@/lib/vault/server/download-monito
 
 function principal(): Principal {
   const subject = `vault-test-${randomUUID()}`;
-  return { subject, displayName: subject.slice(0, 20), email: null, emailVerified: false, source: "development" };
+  return { subject, displayName: subject.slice(0, 20), email: null, emailVerified: false, source: "development", roles: ["_tide_enabled", "_tide_vault.selfencrypt", "_tide_vault.selfdecrypt"] };
 }
 
 async function expectCode(promise: Promise<unknown>, code: string) {

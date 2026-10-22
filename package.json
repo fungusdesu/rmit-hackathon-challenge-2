@@ -18,7 +18,8 @@
     "doctor": "node scripts/dev/doctor.mjs",
     "test:all": "vitest run",
     "test:it": "node scripts/dev/run-it.mjs",
-    "seed:demo": "node scripts/dev/seed-demo.mjs"
+    "seed:demo": "node scripts/dev/seed-demo.mjs",
+    "dev:sim": "node scripts/dev/dev-sim.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1155.0",
