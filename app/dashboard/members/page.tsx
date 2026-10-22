@@ -224,6 +224,7 @@ export default function MembersPage() {
                 <textarea value={inviteReason} onChange={e => setInviteReason(e.target.value)} rows={2} required minLength={5} maxLength={1000} />
               </label>
               <p className={styles.muted}>Owner and Admin invitations create an INVITE_PRIVILEGED_MEMBER request. The invitation is only issued after quorum approval.</p>
+              {setupStatus === "INITIALIZING" && <p className={styles.muted}>This organization is still initializing: governed requests are unavailable until owner quorum is set up. Invite the founding owners first.</p>}
             </>
           )}
           <button type="submit" disabled={busy}>{inviteGoverned ? "Request privileged invitation" : "Send invitation"}</button>
