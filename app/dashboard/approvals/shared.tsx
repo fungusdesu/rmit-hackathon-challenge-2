@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./approvals.module.css";
+import { governanceErrorText } from "../governance-lock";
 import { canonicalJson, effectiveStatus, formatCountdown, operationLabel, quorumProgress, statusTone } from "./helpers";
 
 export type Member = { id: string; role: string; status: string; user: { id: string; displayName: string; email: string | null } };
@@ -22,6 +23,8 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const code = typeof data.error === "string" ? data.error : `http_${response.status}`;
+    const friendly = governanceErrorText(code);
+    if (friendly) throw new Error(friendly);
     const message = typeof data.message === "string" ? `: ${data.message}` : "";
     throw new Error(`${response.status} ${code}${message}`);
   }

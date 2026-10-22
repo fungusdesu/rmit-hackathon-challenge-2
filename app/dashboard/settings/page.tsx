@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiJson, useWorkspace } from "../use-workspace";
+import { governanceLocked, governanceLockText } from "../governance-lock";
 import { buildPolicyChangeRequest, eligibleApprovers, formatTtl, GOVERNABLE_OPERATIONS, validatePolicyChange } from "./policy-change";
 import type { CheckStatus, SystemHealth } from "@/lib/system-health";
 import styles from "./settings.module.css";
@@ -67,9 +68,11 @@ export default function SettingsPage() {
   const draft = { operationType, requiredApprovals, ttlSeconds: Math.round(ttlHours * 3600), baseVersion: current?.version ?? 0, reason };
   const check = useMemo(() => validatePolicyChange(draft, owners, current), [draft.operationType, draft.requiredApprovals, draft.ttlSeconds, draft.baseVersion, draft.reason, owners, current]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const locked = governanceLocked(workspace.organization?.setupStatus);
+
   async function propose(event: FormEvent) {
     event.preventDefault();
-    if (!orgId || check.errors.length) return;
+    if (!orgId || locked || check.errors.length) return;
     setSubmitting(true); setSubmitError(null); setSubmitted(null);
     try {
       const body = buildPolicyChangeRequest(draft, crypto.randomUUID());
@@ -111,6 +114,7 @@ export default function SettingsPage() {
       <section className={`panel ${styles.section}`} aria-labelledby="propose-title">
         <span className="overline">Governed change</span><h2 id="propose-title">Propose a policy change</h2>
         <p className={styles.muted}>Creates an <code>UPDATE_POLICY</code> request. Nothing changes until owners approve it in <Link href="/dashboard/approvals">Approvals</Link>. The UPDATE_POLICY policy itself cannot be changed here.</p>
+        {locked && <p className={styles.warning} role="status">{governanceLockText(owners)} <Link href="/dashboard/members">Invite founding owners</Link></p>}
         <form className={styles.form} onSubmit={propose} noValidate>
           <label>Operation<select value={operationType} onChange={e => setOperationType(e.target.value)}>{GOVERNABLE_OPERATIONS.map(op => <option key={op} value={op}>{LABELS[op]}</option>)}</select></label>
           <label>Required approvals<input type="number" min={1} max={10} value={Number.isNaN(requiredApprovals) ? "" : requiredApprovals} onChange={e => setRequiredApprovals(e.target.valueAsNumber)} aria-describedby="quorum-hint" /><small id="quorum-hint">{eligibleApprovers(operationType, owners)} owner(s) eligible to approve (requester{operationType === "REMOVE_OWNER" ? " and target" : ""} excluded)</small></label>
@@ -123,7 +127,7 @@ export default function SettingsPage() {
           </ul>}
           {submitError && <p className={`form-error ${styles.wide}`} role="alert">{submitError}</p>}
           {submitted && <p className={`${styles.wide} ${styles.success}`} role="status">{submitted} <Link href="/dashboard/approvals">Go to approvals</Link></p>}
-          <div className={styles.wide}><button type="submit" className="button" disabled={submitting || check.errors.length > 0}>{submitting ? "Submitting…" : "Submit for approval"}</button></div>
+          <div className={styles.wide}><button type="submit" className="button" disabled={submitting || locked || check.errors.length > 0}>{submitting ? "Submitting…" : locked ? "Locked until governance is active" : "Submit for approval"}</button></div>
         </form>
       </section>
     </>}

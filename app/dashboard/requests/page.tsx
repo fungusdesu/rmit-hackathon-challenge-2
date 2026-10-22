@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useWorkspace } from "../use-workspace";
+import { governanceLocked, governanceLockText } from "../governance-lock";
 import styles from "../approvals/approvals.module.css";
 import { buildPayload, effectiveStatus, newIdempotencyKey, OPERATIONS, operationLabel, validatePayload, type FormFields, type Operation } from "../approvals/helpers";
 import { RequestActions } from "../approvals/request-actions";
 import { api, RequestSummary, requiredFor, StatusBadge, useGovernanceData, useNow, type FullRequest, type Member, type Policy } from "../approvals/shared";
 
-function NewRequestForm({ orgId, members, policies, onCreated }: { orgId: string; members: Member[]; policies: Policy[]; onCreated: () => void }) {
+function NewRequestForm({ orgId, members, policies, locked, onCreated }: { orgId: string; members: Member[]; policies: Policy[]; locked: boolean; onCreated: () => void }) {
   const [op, setOp] = useState<Operation>("REMOVE_OWNER");
   const [f, setF] = useState<FormFields>({});
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +20,7 @@ function NewRequestForm({ orgId, members, policies, onCreated }: { orgId: string
 
   async function submit(event: React.FormEvent) {
     event.preventDefault(); setError(null); setOk(null);
+    if (locked) { setError(governanceLockText(owners.length)); return; }
     const payload = buildPayload(op, f);
     const invalid = validatePayload(op, payload);
     if (invalid) { setError(invalid); return; }
@@ -32,6 +34,7 @@ function NewRequestForm({ orgId, members, policies, onCreated }: { orgId: string
 
   return <form className={styles.form} onSubmit={submit} aria-labelledby="new-title">
     <h2 id="new-title">New request</h2>
+    {locked && <p className={styles.error} role="status">{governanceLockText(owners.length)} <Link href="/dashboard/members">Invite founding owners</Link></p>}
     <label>Operation<select value={op} onChange={event => { setOp(event.target.value as Operation); setF({}); }}>{OPERATIONS.map(o => <option key={o} value={o}>{operationLabel(o)}</option>)}</select></label>
     {op === "REMOVE_OWNER" && <label>Owner to remove<select required value={f.targetUserId ?? ""} onChange={set("targetUserId")}><option value="">Select owner…</option>{owners.map(m => <option key={m.id} value={m.user.id}>{m.user.displayName} {m.user.email ?? ""}</option>)}</select></label>}
     {op === "INVITE_PRIVILEGED_MEMBER" && <>
@@ -53,7 +56,7 @@ function NewRequestForm({ orgId, members, policies, onCreated }: { orgId: string
     <pre className={styles.payload} aria-label="Payload preview">{JSON.stringify(buildPayload(op, { ...f, baseVersion: f.baseVersion ?? String(policies.find(p => p.operationType === (f.policyOperation ?? "REMOVE_OWNER"))?.version ?? "") }), null, 2)}</pre>
     {error && <p className={styles.error} role="alert">Error: {error}</p>}
     {ok && <p role="status">{ok}</p>}
-    <div className={styles.actions}><button className="button" type="submit" disabled={working}>{working ? "Submitting…" : "Submit request"}</button></div>
+    <div className={styles.actions}><button className="button" type="submit" disabled={working || locked}>{working ? "Submitting…" : locked ? "Locked until governance is active" : "Submit request"}</button></div>
   </form>;
 }
 
@@ -73,7 +76,7 @@ export default function RequestsPage() {
     {workspace.organizations.length > 1 && <label className="workspace-select-label">Organization<select value={orgId} onChange={event => workspace.selectOrganization(event.target.value)}>{workspace.organizations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
     {data.error && <p className="workspace-state workspace-error" role="alert">{data.error}</p>}
     {workspace.organization && <div className={styles.grid}>
-      <section className="panel"><NewRequestForm orgId={orgId} members={data.members} policies={data.policies} onCreated={() => void data.reload()} /></section>
+      <section className="panel"><NewRequestForm orgId={orgId} members={data.members} policies={data.policies} locked={governanceLocked(workspace.organization.setupStatus)} onCreated={() => void data.reload()} /></section>
       <section className="panel" aria-labelledby="mine-title">
         <h2 id="mine-title">Submitted by me ({mine.length})</h2>
         {data.loading && <p role="status">Loading…</p>}

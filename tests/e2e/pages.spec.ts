@@ -72,6 +72,30 @@ test.describe.serial("Dashboard modules (development mode)", () => {
     expect(result.ok ?? result.result?.ok).toBe(true);
   });
 
+  test("initializing organization locks governed actions instead of failing with 409", async ({ page, request }) => {
+    // A fresh organization has one owner, so governance stays INITIALIZING until 3 founding owners join.
+    const org = await request.post("/api/organizations", { data: { name: `E2E Setup ${Date.now()}`, description: "playwright" } });
+    expect(org.status()).toBe(201);
+    const freshOrgId = ((await org.json()) as { organization: { id: string } }).organization.id;
+
+    // The server rule is unchanged: governed requests are still rejected.
+    const rejected = await request.post(`/api/organizations/${freshOrgId}/requests`, {
+      data: { operationType: "INVITE_PRIVILEGED_MEMBER", idempotencyKey: `e2e-${Date.now()}`, payload: { email: "admin@example.com", role: "ADMIN", reason: "e2e lock check" } },
+    });
+    expect(rejected.status()).toBe(409);
+    expect(((await rejected.json()) as { error: string }).error).toBe("governance_not_active");
+
+    await page.addInitScript((id) => window.sessionStorage.setItem("businessvault-organization", id), freshOrgId);
+    await page.goto("/dashboard/members");
+    await expect(page.getByText(/1 of 3 founding owners have joined/).first()).toBeVisible({ timeout: 30_000 });
+
+    await page.goto("/dashboard/requests");
+    await expect(page.getByRole("button", { name: /Locked until governance is active/ })).toBeDisabled({ timeout: 30_000 });
+
+    await page.goto("/dashboard/settings");
+    await expect(page.getByRole("button", { name: /Locked until governance is active/ })).toBeDisabled({ timeout: 30_000 });
+  });
+
   test("settings shows integration health from the server", async ({ page }) => {
     await page.goto("/dashboard/settings");
     await expect(page.getByRole("heading", { name: /Integration health/i })).toBeVisible({ timeout: 30_000 });

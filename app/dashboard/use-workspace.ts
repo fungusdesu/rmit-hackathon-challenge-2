@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { governanceErrorText } from "./governance-lock";
 
 export type Organization = { id: string; name: string; description: string | null; setupStatus: string };
 export type Summary = { pendingApprovals: number; protectedDocuments: number; activeOwners: number; securityEvents: number };
@@ -42,6 +43,8 @@ export async function apiJson<T>(path: string, options?: RequestInit): Promise<T
     if (response.status === 401) throw new Error("Your session is missing or has expired. Sign in to continue.");
     if (response.status === 403) throw new Error("You do not have access to this action.");
     if (response.status === 404) throw new Error("This organization or request is no longer available.");
+    const friendly = typeof data.error === "string" ? governanceErrorText(data.error) : null;
+    if (friendly) throw new Error(friendly);
     throw new Error(typeof data.message === "string" ? data.message : typeof data.error === "string" ? data.error.replaceAll("_", " ") : "The request failed. Please try again.");
   }
   return data as T;

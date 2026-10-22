@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useWorkspace } from "../use-workspace";
+import { governanceErrorText, governanceLocked, governanceLockText } from "../governance-lock";
 import styles from "./members.module.css";
 import {
   ApiError, ROLES, buildMemberChangeRequest, buildPrivilegedInviteRequest, callApi, invitationNeedsRequest,
@@ -15,7 +16,7 @@ type Policy = { operationType: string; requiredApprovals: number };
 type Notice = { kind: "error" | "ok"; text: string; approvals?: boolean };
 
 function errText(cause: unknown) {
-  if (cause instanceof ApiError) return `${cause.code} (${cause.status}): ${cause.message}`;
+  if (cause instanceof ApiError) return governanceErrorText(cause.code) ?? `${cause.code} (${cause.status}): ${cause.message}`;
   return cause instanceof Error ? cause.message : "Request failed.";
 }
 const fmt = (d: string | null) => (d ? new Date(d).toLocaleDateString() : "—");
@@ -64,6 +65,9 @@ export default function MembersPage() {
   const quorum = quorumSummary(owners, removeOwnerPolicy?.requiredApprovals ?? null);
   const setupStatus = ws.organization?.setupStatus ?? "";
   const inviteGoverned = invitationNeedsRequest(role, setupStatus, setupStatus === "INITIALIZING" ? callerRole : null);
+  // Governed requests are rejected server-side until founding owners join; don't offer them.
+  const locked = governanceLocked(setupStatus);
+  const lockText = governanceLockText(owners);
   // The server enforces this too; the UI only hides actions the caller cannot take.
   const canManage = callerRole === "OWNER" || callerRole === "ADMIN";
 
@@ -71,6 +75,7 @@ export default function MembersPage() {
     event.preventDefault();
     if (!base) return;
     setNotice(null); setLink(null); setCopied(false);
+    if (inviteGoverned && locked) { setNotice({ kind: "error", text: lockText }); return; }
     if (inviteGoverned && !validReason(inviteReason)) { setNotice({ kind: "error", text: "invalid_reason: a reason of 5-1000 characters is required for privileged invitations." }); return; }
     setBusy(true);
     try {
@@ -104,6 +109,7 @@ export default function MembersPage() {
     const { member, action } = editing;
     const change: { role?: Role; status?: Status } =
       action === "role" ? { role: editing.role } : { status: action === "suspend" ? "SUSPENDED" : action === "reactivate" ? "ACTIVE" : "REMOVED" };
+    if (locked && memberChangePath(member.role, change) !== "direct") { setNotice({ kind: "error", text: lockText }); return; }
     if (!validReason(editing.reason)) { setNotice({ kind: "error", text: "invalid_reason: a reason of 5-1000 characters is required." }); return; }
     if (action === "remove" && !window.confirm(`Remove ${member.user.displayName}?`)) return;
     setBusy(true); setNotice(null);
@@ -148,6 +154,11 @@ export default function MembersPage() {
       <section className={quorum.healthy ? styles.callout : `${styles.callout} ${styles.warn}`} aria-live="polite">
         <strong>Owner quorum</strong> {quorum.text}
       </section>
+      {locked && (
+        <section className={`${styles.callout} ${styles.warn}`} role="status">
+          <strong>Setup in progress</strong> {lockText} Invite the founding owners below: Owner invitations are issued directly while the organization is initializing.
+        </section>
+      )}
 
       {notice && (
         <div role={notice.kind === "error" ? "alert" : "status"} className={notice.kind === "error" ? styles.error : styles.ok}>
@@ -203,8 +214,9 @@ export default function MembersPage() {
                 : pendingPath === "REMOVE_OWNER" ? "Removing an owner creates a REMOVE_OWNER request. It needs owner quorum and cannot drop the organization below its owner floor."
                 : "This touches Owner/Admin privilege, so it creates a CHANGE_PRIVILEGED_MEMBERSHIP request that other owners must approve."}
             </p>
+            {locked && pendingPath !== "direct" && <p role="status" className={styles.error}>{lockText}</p>}
             <div className={styles.row}>
-              <button type="submit" disabled={busy}>{pendingPath === "direct" ? "Apply change" : "Create approval request"}</button>
+              <button type="submit" disabled={busy || (locked && pendingPath !== "direct")}>{pendingPath === "direct" ? "Apply change" : locked ? "Locked until governance is active" : "Create approval request"}</button>
               <button type="button" onClick={() => setEditing(null)}>Cancel</button>
             </div>
           </form>
@@ -231,10 +243,10 @@ export default function MembersPage() {
                 <textarea value={inviteReason} onChange={e => setInviteReason(e.target.value)} rows={2} required minLength={5} maxLength={1000} />
               </label>
               <p className={styles.muted}>Owner and Admin invitations create an INVITE_PRIVILEGED_MEMBER request. The invitation is only issued after quorum approval.</p>
-              {setupStatus === "INITIALIZING" && <p className={styles.muted}>This organization is still initializing: governed requests are unavailable until owner quorum is set up. Invite the founding owners first.</p>}
+              {locked && <p role="status" className={styles.error}>{lockText} Invite the founding owners as OWNER first.</p>}
             </>
           )}
-          <button type="submit" disabled={busy}>{inviteGoverned ? "Request privileged invitation" : "Send invitation"}</button>
+          <button type="submit" disabled={busy || (inviteGoverned && locked)}>{inviteGoverned ? (locked ? "Locked until governance is active" : "Request privileged invitation") : "Send invitation"}</button>
         </form>
 
         {link && (
