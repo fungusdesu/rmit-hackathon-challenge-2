@@ -17,6 +17,7 @@ export type TideEnv = {
   getToken: () => Promise<string | null>;
   roles: { encrypt: boolean; decrypt: boolean };
   subject: string | null;
+  username: string | null;
   raw: { doEncrypt: (d: unknown) => Promise<unknown>; doDecrypt: (d: unknown) => Promise<unknown> };
 };
 
@@ -34,6 +35,8 @@ export function useTideEnv(): TideEnv {
   const cipher = useMemo(() => createTideVaultCipher({ doEncrypt: (d) => tc.doEncrypt(d), doDecrypt: (d) => tc.doDecrypt(d) }), [tc]);
   let subject: string | null = null;
   try { subject = tc.authenticated ? (tc.getValueFromToken("sub") as string | null) ?? null : null; } catch { subject = null; }
+  let username: string | null = null;
+  try { const u: unknown = tc.authenticated ? tc.getValueFromToken("preferred_username") : null; username = typeof u === "string" ? u : null; } catch { username = null; }
   const has = (r: string) => { try { return tc.authenticated && tc.hasRealmRole(r); } catch { return false; } };
   return {
     ready: !tc.isInitializing,
@@ -42,6 +45,7 @@ export function useTideEnv(): TideEnv {
     getToken,
     roles: { encrypt: has(TIDE_VAULT_ROLES.encrypt), decrypt: has(TIDE_VAULT_ROLES.decrypt) },
     subject,
+    username,
     raw: { doEncrypt: (d) => tc.doEncrypt(d), doDecrypt: (d) => tc.doDecrypt(d) },
   };
 }

@@ -32,3 +32,5 @@
 .muted { color: #a1a1aa; font-style: italic; }
 .actions { display: flex; gap: 6px; }
 .pre { margin: 0; font-family: "DM Mono", monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all; background: #fafafa; border: 1px solid #e4e4e7; border-radius: 6px; padding: 8px; }
+.identity { display: grid; gap: 2px; }
+.username { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; word-break: break-all; }
