@@ -2,6 +2,10 @@
 
 BusinessVault is a security and governance layer for shared business assets.
 
+Project documents: [status](docs/PROJECT_STATUS.md), [architecture](docs/ARCHITECTURE.md),
+[implementation plan](docs/IMPLEMENTATION_PLAN.md), [TideCloak setup](docs/TIDECLOAK_SETUP.md),
+and [security model](docs/SECURITY_MODEL.md).
+
 ## Run locally with Docker
 
 Requirements: Docker Engine with the Compose plugin.
@@ -45,9 +49,9 @@ docker compose up -d postgres
 npx prisma migrate dev --name initial
 ```
 
-The dashboard is currently a preview surface. Authentication and TideCloak-backed
-authorization are deliberately not represented as complete until a real Tide realm is
-verified.
+The dashboard uses live organization, summary, and request APIs. TideCloak's provider, login,
+proxy, and token verification boundaries are in the codebase, but interactive browser login
+and Tide-backed authorization for BusinessVault actions remain unverified.
 
 Compose uses an explicit development authentication adapter so the organization API can
 be exercised locally. This adapter is not a security boundary and must never be enabled
@@ -166,6 +170,7 @@ docker compose down -v
 
 ## Current status
 
-The repository currently contains the runnable application foundation and local services.
-TideCloak integration, Prisma schema/migrations, governance workflows, and encrypted vault
-behavior will be added only after their documented capabilities are verified.
+The repository has a runnable application, Prisma schema and migration, organization APIs,
+and an application-level `REMOVE_OWNER` approval workflow. It does not yet have a working
+encrypted document vault, verified live Tide login, or independently enforced cryptographic
+authorization. See the [status matrix](docs/PROJECT_STATUS.md) for current details.
