@@ -13,6 +13,7 @@ services:
     network_mode: host
     environment:
       NODE_ENV: development
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
       AUTH_MODE: ${AUTH_MODE:-development}
       ALLOW_INSECURE_DEV_AUTH: ${ALLOW_INSECURE_DEV_AUTH:-true}
       DEV_AUTH_SUBJECT: local-owner

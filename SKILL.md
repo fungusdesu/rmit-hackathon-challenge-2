@@ -352,6 +352,10 @@ The next implementation slice is:
 - Added six Tide verifier tests covering valid, wrong-issuer, wrong-client, expired, invalid-signature, and malformed tokens.
 - Removed the local router redirect race from logout so the Tide SDK owns session termination.
 - Determined the observed ORK CSP warning accompanied the invalid return-URL error; BusinessVault CSP was not broadened without evidence of a blocked working flow.
+- Made Tide logout idempotent and added a landing-page fallback when provider navigation does not complete.
+- Stabilized the Tide provider config object to prevent repeated SDK initialization and added a server-session fallback for stalled auth callbacks.
+- Bound cookie-authenticated mutation CSRF checks to explicit `APP_ORIGIN` instead of Docker-derived request URLs.
+- Diagnosed callback `initialization_failed` as TideCloak token issuance failing at distributed ORK signing (`Not enough orks returned an ok response`), not an application redirect defect.
 - Learned that Docker Compose's app container still uses the development auth profile by default; live Tide testing currently runs the BusinessVault server directly with `npm run dev` so both server and browser resolve TideCloak through `localhost:8080`.
 
 ### 2026-10-22: Larger UI and feature previews

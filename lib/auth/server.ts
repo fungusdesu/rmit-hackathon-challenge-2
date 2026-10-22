@@ -5,6 +5,29 @@ import { getTideConfig } from "@/lib/tide/config";
 
 export class AuthConfigurationError extends Error {}
 export class AuthenticationError extends Error {}
+export class AuthorizationError extends Error {}
+
+function configuredAppOrigin() {
+  const configured = process.env.APP_ORIGIN;
+  if (!configured) throw new AuthConfigurationError("APP_ORIGIN is required for cookie-authenticated mutations");
+  try {
+    return new URL(configured).origin;
+  } catch {
+    throw new AuthConfigurationError("APP_ORIGIN must be an absolute URL origin");
+  }
+}
+
+function requireTrustedOrigin(request: NextRequest) {
+  const header = request.headers.get("origin");
+  if (!header) throw new AuthorizationError("Same-origin request required");
+  let origin: string;
+  try {
+    origin = new URL(header).origin;
+  } catch {
+    throw new AuthorizationError("Same-origin request required");
+  }
+  if (origin !== configuredAppOrigin()) throw new AuthorizationError("Same-origin request required");
+}
 
 function developmentPrincipal(request: NextRequest): Principal {
   if (process.env.ALLOW_INSECURE_DEV_AUTH !== "true") {
@@ -36,8 +59,7 @@ export async function requirePrincipal(request: NextRequest): Promise<Principal>
     const cookieToken = request.cookies.get("kcToken")?.value;
     const bearerToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
     if (cookieToken && !bearerToken && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
-      const origin = request.headers.get("origin");
-      if (!origin || origin !== request.nextUrl.origin) throw new AuthenticationError("Same-origin request required");
+      requireTrustedOrigin(request);
     }
     const token = bearerToken ?? cookieToken;
     if (!token) throw new AuthenticationError("A TideCloak access token is required");

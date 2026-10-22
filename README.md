@@ -153,6 +153,7 @@ activate the development license, enable QEA, and configure the BusinessVault cl
 ```dotenv
 AUTH_MODE=tidecloak
 NEXT_PUBLIC_AUTH_MODE=tidecloak
+APP_ORIGIN=http://localhost:3000
 TIDECLOAK_AUTH_SERVER_URL=http://localhost:8080
 TIDECLOAK_REALM=nextjs-test
 TIDECLOAK_CLIENT_ID=myclient
@@ -202,6 +203,10 @@ Do not commit those values.
 Do not broaden BusinessVault CSP based only on CSP warnings emitted by Tide or an ORK error
 page. Add an origin only when a working Tide flow proves that BusinessVault itself blocks a
 required resource.
+
+Cookie-authenticated state changes compare the browser `Origin` header to `APP_ORIGIN`.
+Keep login, dashboard, and API requests on that exact origin; missing or mismatched origins
+are rejected with HTTP `403`.
 
 Stop the stack:
 
