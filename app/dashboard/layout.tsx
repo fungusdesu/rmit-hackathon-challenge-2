@@ -9,7 +9,7 @@ const navigation: { label: string; href: string; icon: IconName; preview?: boole
   { label: "Overview", href: "/dashboard", icon: "overview" },
   { label: "Protected requests", href: "/dashboard/requests", icon: "requests" },
   { label: "Approvals inbox", href: "/dashboard/approvals", icon: "approvals", preview: true },
-  { label: "Document vault", href: "/dashboard/vault", icon: "vault", preview: true },
+  { label: "Document vault", href: "/dashboard/vault", icon: "vault" },
   { label: "Members & owners", href: "/dashboard/members", icon: "members", preview: true },
   { label: "Asset registry", href: "/dashboard/assets", icon: "assets", preview: true },
   { label: "Audit log", href: "/dashboard/audit", icon: "audit", preview: true },
