@@ -1,0 +1,39 @@
+"use client";
+
+import { useTideCloak } from "@tidecloak/nextjs";
+import { useMemo } from "react";
+import { TIDE_VAULT_ROLES } from "@/lib/vault/contracts";
+import type { VaultCipher } from "@/lib/vault/client/cipher";
+import { createTideVaultCipher } from "@/lib/vault/client/tide-cipher";
+
+export const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE;
+export const IS_TIDE = AUTH_MODE === "tidecloak";
+export const IS_DEV = AUTH_MODE === "development";
+
+export type TideEnv = {
+  ready: boolean;
+  authenticated: boolean;
+  cipher: VaultCipher;
+  getToken: () => Promise<string | null>;
+  roles: { encrypt: boolean; decrypt: boolean };
+  subject: string | null;
+  raw: { doEncrypt: (d: unknown) => Promise<unknown>; doDecrypt: (d: unknown) => Promise<unknown> };
+};
+
+// Only call inside TideCloakProvider (i.e. when IS_TIDE).
+export function useTideEnv(): TideEnv {
+  const tc = useTideCloak();
+  const cipher = useMemo(() => createTideVaultCipher({ doEncrypt: (d) => tc.doEncrypt(d), doDecrypt: (d) => tc.doDecrypt(d) }), [tc]);
+  let subject: string | null = null;
+  try { subject = tc.authenticated ? (tc.getValueFromToken("sub") as string | null) ?? null : null; } catch { subject = null; }
+  const has = (r: string) => { try { return tc.authenticated && tc.hasRealmRole(r); } catch { return false; } };
+  return {
+    ready: !tc.isInitializing,
+    authenticated: tc.authenticated,
+    cipher,
+    getToken: () => tc.getToken(),
+    roles: { encrypt: has(TIDE_VAULT_ROLES.encrypt), decrypt: has(TIDE_VAULT_ROLES.decrypt) },
+    subject,
+    raw: { doEncrypt: (d) => tc.doEncrypt(d), doDecrypt: (d) => tc.doDecrypt(d) },
+  };
+}
