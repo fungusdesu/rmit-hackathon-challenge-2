@@ -1,0 +1,25 @@
+.page { display: grid; gap: 16px; padding: 16px; max-width: 1200px; }
+.header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.banner { border: 1px solid #c9a227; background: #fff8e1; color: #5c4400; padding: 10px 14px; border-radius: 8px; font-weight: 600; }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.filters label, .form label { display: grid; gap: 4px; font-size: 0.85rem; }
+.filters select, .form input, .form select, .form textarea { padding: 6px 8px; border: 1px solid #bbb; border-radius: 6px; font: inherit; background: #fff; color: #111; }
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.table th, .table td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; vertical-align: top; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: #eee; color: #222; }
+.critical { background: #fde2e1; color: #8a1c14; }
+.high { background: #ffe9cc; color: #7a4100; }
+.overdue { background: #b3261e; color: #fff; margin-left: 6px; }
+.button { padding: 6px 12px; border-radius: 6px; border: 1px solid #333; background: #111; color: #fff; cursor: pointer; font: inherit; }
+.secondary { background: transparent; color: inherit; }
+.danger { border-color: #b3261e; background: #b3261e; }
+.button:disabled { opacity: 0.5; cursor: not-allowed; }
+.button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #1a73e8; outline-offset: 2px; }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.error { color: #b3261e; }
+.backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; justify-content: flex-end; z-index: 50; }
+.drawer { width: min(480px, 100%); height: 100%; overflow-y: auto; background: #fff; color: #111; padding: 16px; display: grid; gap: 12px; align-content: start; }
+.form { display: grid; gap: 10px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 600px) { .row { grid-template-columns: 1fr; } }
