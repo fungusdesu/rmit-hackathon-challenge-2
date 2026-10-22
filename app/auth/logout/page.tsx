@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useTideCloak } from "@tidecloak/nextjs";
 
 export default function LogoutPage() {
@@ -13,13 +12,11 @@ export default function LogoutPage() {
 }
 
 function TideLogout() {
-  const router = useRouter();
   const { logout } = useTideCloak();
 
   useEffect(() => {
     logout();
-    router.replace("/");
-  }, [logout, router]);
+  }, [logout]);
 
   return <main className="auth-page"><div className="auth-card"><span className="overline">TideCloak</span><h1>Signing you out securely.</h1><p>Ending the BusinessVault session.</p></div></main>;
 }
