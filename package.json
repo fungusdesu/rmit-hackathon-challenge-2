@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "test": "vitest run",
     "test:vault": "vitest run tests/vault",
+    "test:e2e": "playwright test",
     "vault:leak-scan": "node --experimental-strip-types scripts/vault/leak-scan.ts"
   },
   "dependencies": {
@@ -26,6 +27,7 @@
     "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@types/node": "22.15.30",
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
