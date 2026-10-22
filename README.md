@@ -1,277 +1,135 @@
-# BusinessVault
+[![Built with TideCloak](https://tide.org/badges/built-with-tidecloak.svg)](https://tide.org/tidecloak?utm_source=github&utm_medium=readme&utm_campaign=unlocked)
 
-BusinessVault is a security and governance layer for shared business assets.
+## Project overview
 
-Project documents: [status](docs/PROJECT_STATUS.md), [architecture](docs/ARCHITECTURE.md),
-[implementation plan](docs/IMPLEMENTATION_PLAN.md), [TideCloak setup](docs/TIDECLOAK_SETUP.md),
-and [security model](docs/SECURITY_MODEL.md).
+**BusinessVault** helps co-owned businesses govern privileged changes, manage digital assets, and store encrypted documents through a shared workspace.
 
-## Run locally with Docker
+Built with [TideCloak](https://tide.org/tidecloak?utm_source=github&utm_medium=readme&utm_campaign=unlocked).
 
-Requirements: Docker Engine with the Compose plugin.
+### 1. Vision & originality
+
+We propose a company workspace where requesting, authorizing, and executing a sensitive change are separate steps. Shared ownership becomes an explicit approval policy, with the exact action visible before anyone approves.
+
+### 2. Trust constraint insight
+
+Shared businesses often depend on one administrator who can remove colleagues or expose company data. BusinessVault aims to reduce that dependence through owner quorums and browser encryption, enabling collaboration without granting one person unchecked authority.
+
+### 3. Value & impact
+
+Startups, agencies, and teams with shared assets gain clearer accountability and safer handovers. Once governance is active, inviting a new administrator requires other owners’ approval, while auditors can review the decision and its execution.
+
+### 4. Why TideCloak matters
+
+TideCloak supplies verified identity and browser encryption APIs, supporting our goal of tying access to people while keeping document plaintext on their devices. Identity and encryption adapters are implemented; live Tide encryption remains unverified. The local vault is labelled **DEMO — NOT E2EE**; governance is **APP-LEVEL APPROVAL ONLY**, with Tide/Forseti enforcement planned.
+
+### 5. Prototype & storytelling
+
+Follow Bob’s administrator-invitation request: self-approval is blocked, Alice and Carol review the exact payload, and execution becomes available after both approve. Then inspect the audit trail, upload and decrypt a demo document, and switch to an outsider to demonstrate organization isolation.
+
+## Setup
+
+### Requirements
+
+- Node.js 22 and npm.
+- Docker Engine or Docker Desktop with Docker Compose v2.
+- Available local ports: `3000` (app), `5432` (PostgreSQL), `9000` (MinIO API), and `9001` (MinIO console). Live Tide mode also needs an accessible TideCloak server, typically on `8080`.
+
+The application uses Next.js 16, React 19, TypeScript, Prisma, PostgreSQL 17, MinIO, and the TideCloak SDK.
+
+### Run the local prototype
+
+The local walkthrough uses explicit development identities and a demo vault cipher. It runs without Tide enrollment. Use it only on a local development machine.
+
+1. Install dependencies and create an environment file on a fresh checkout:
+
+   ```bash
+   npm ci
+   cp .env.example .env
+   ```
+
+   On PowerShell, use `Copy-Item .env.example .env` for the copy step. If you already have `.env`, edit that file rather than replacing it.
+
+2. Set these values in `.env`, keeping the example’s other storage settings:
+
+   ```dotenv
+   DATABASE_URL=postgresql://businessvault:businessvault@localhost:5432/businessvault
+   APP_ORIGIN=http://localhost:3000
+   AUTH_MODE=development
+   NEXT_PUBLIC_AUTH_MODE=development
+   ALLOW_INSECURE_DEV_AUTH=true
+   DEV_AUTH_SUBJECT=local-owner
+   DEV_AUTH_NAME=Local Owner
+   DEV_AUTH_EMAIL=owner@localhost.test
+   ```
+
+   Next.js gives an existing `.env.local` precedence over `.env`. Keep overlapping settings consistent, particularly the authentication mode. Compose and the Prisma CLI use `.env`; Compose does not automatically load `.env.local`.
+
+3. Start the database and storage, apply migrations, and start the app:
+
+   If a Docker-hosted app already occupies port `3000`, run `docker compose stop app` first.
+
+   ```bash
+   docker compose up -d postgres minio minio-init
+   npx prisma generate
+   npx prisma migrate deploy
+   npm run dev
+   ```
+
+4. In a second terminal, seed the demo workspace:
+
+   ```bash
+   npm run seed:demo
+   ```
+
+   Open [the dashboard](http://localhost:3000/dashboard). Select **Alice (owner)** in **DEV · acting as**, then choose **Northstar Labs (demo)**. The seed creates three owners, a member, an auditor, three asset records, and Bob’s pending administrator-invitation request. Switch to Bob, Alice, and Carol to follow the approval story; Erin is the auditor and Mallory is the outsider. Re-running the seed reuses an existing active demo organization.
+
+| Service | Local address |
+| --- | --- |
+| Application | http://localhost:3000 |
+| Dashboard | http://localhost:3000/dashboard |
+| MinIO console | http://localhost:9001 |
+| PostgreSQL | `localhost:5432` |
+
+MinIO’s local console credentials are `businessvault` / `businessvault-secret`. All Compose credentials and development identities are for local use only.
+
+To run the application in Docker instead, stop the host development server and run:
 
 ```bash
 docker compose up --build
 ```
 
-Open:
+Compose runs migrations and initializes the private storage bucket before starting the app. Stop the stack with `docker compose down`; adding `-v` deletes the Compose-managed database and storage volumes. On Windows-mounted filesystems with PostgreSQL permission errors, set `POSTGRES_DATA_DIR` in `.env` to a directory on a Linux filesystem before starting PostgreSQL.
 
-- Application: http://localhost:3000
-- MinIO console: http://localhost:9001
-- PostgreSQL: localhost:5432
+### Enable live TideCloak
 
-The default local credentials are intentionally development-only and are defined in
-`compose.yaml`. Never expose this Compose stack to the public Internet or reuse these
-credentials outside local development.
+TideCloak runs separately from the services in `compose.yaml`. Follow the [TideCloak setup guide](docs/TIDECLOAK_SETUP.md) and [vendor quickstart](https://docs.tide.org/Admin/Quick-deploy-test) to provision a realm, activate its license, and complete Tide account enrollment.
 
-If PostgreSQL exits with `could not change permissions ... Operation not permitted`,
-check `docker info --format '{{.DockerRootDir}}'`. Docker volumes stored on a Windows
-drive (for example, `/mnt/d/...`) may not support the Linux permissions PostgreSQL
-requires. Use a directory on a Linux filesystem instead:
+1. Register a client with valid redirects `http://localhost:3000/auth/redirect` and `http://localhost:3000/silent-check-sso.html`, and web origin `http://localhost:3000`. Approve and commit realm changes when required by QEA.
+2. Set `AUTH_MODE=tidecloak`, `NEXT_PUBLIC_AUTH_MODE=tidecloak`, and `ALLOW_INSECURE_DEV_AUTH=false`. Set both the `TIDECLOAK_*` and `NEXT_PUBLIC_TIDECLOAK_*` server URL, realm, and client ID values to match your actual realm. Set `NEXT_PUBLIC_TIDECLOAK_REDIRECT_URI=http://localhost:3000/auth/redirect`.
+3. Download the client’s full Tide adapter and set `TIDECLOAK_ADAPTER_JSON` and `NEXT_PUBLIC_TIDECLOAK_ADAPTER_JSON` in your ignored environment file. For vault testing, provision `_tide_vault.selfencrypt` and `_tide_vault.selfdecrypt`. Keep local credentials, adapter files, and realm data out of source control.
+4. For a local `http://localhost:8080` issuer, run the app on the host with `npm run dev` so the browser and app server can both reach it. Stop a Docker-hosted app first with `docker compose stop app`. Linux users can alternatively use the host-network override described in the [runbook](docs/RUNBOOK.md).
+5. Start a fresh sign-in at http://localhost:3000/auth/login, then check http://localhost:3000/api/auth/session. The vault test panel is at `/dashboard/vault/diagnostics`.
 
-```bash
-mkdir -p "$HOME/.local/share/businessvault/postgres"
-printf '\nPOSTGRES_DATA_DIR=%s\n' "$HOME/.local/share/businessvault/postgres" >> .env
-docker compose up --build -d
-```
+`NEXT_PUBLIC_*` settings are embedded at build time; rebuild a Docker or production app after changing them. A connection refusal on `localhost:8080` means the identity server is unavailable. Copying environment values or adapter JSON does not restore a realm’s database, keys, or enrolled users.
 
-This starts a separate database and preserves the old Docker volume. If an existing
-database contains data, migrate it before switching directories. With this override,
-database files persist in `POSTGRES_DATA_DIR`, including after `docker compose down -v`.
+### Verification and limitations
 
-## Database development
+Run these commands from the repository root:
 
-The Prisma schema is in `prisma/schema.prisma`. After the PostgreSQL service is running,
-create a local migration with:
+| Command | Purpose |
+| --- | --- |
+| `node --env-file=.env scripts/dev/doctor.mjs` | Check the local environment and service connectivity |
+| `npm run build` | Compile the production application and check TypeScript |
+| `npm run test:all` | Run Vitest suites; integration cases require their opt-in flags |
+| `npm run test:tide` | Test token signature, issuer, client, expiry, and malformed-token rejection |
+| `npm run test:it` | Enable database, storage, and HTTP integration suites; requires local services and a development-auth app on port `3000` |
+| `npm run test:e2e` | Run Playwright browser tests; first install Chromium with `npx playwright install chromium` |
 
-```bash
-docker compose up -d postgres
-npx prisma migrate dev --name initial
-```
+Use a disposable local database for tests. Browser tests use a development server on port `3200` by default; PostgreSQL, MinIO, and migrations must already be ready. See the [runbook](docs/RUNBOOK.md) for testing an existing server and running the governance HTTP suite.
 
-The dashboard uses live organization, summary, and request APIs. TideCloak's provider, login,
-proxy, and token verification boundaries are in the codebase, but interactive browser login
-and Tide-backed authorization for BusinessVault actions remain unverified.
+- Approvals are enforced by the application. Independent Tide/Forseti authorization at the final executor remains future work.
+- The demo vault uses a browser-local AES key and is labelled **DEMO — NOT E2EE**. The Tide encryption path requires a verified live round trip; shared organization decryption remains blocked. The default ciphertext limit is 5 MiB.
+- The asset registry records ownership and review information; it does not control external provider permissions.
+- Audit hash-chain verification has no independent external anchor and cannot prevent a database administrator from rewriting the chain.
 
-Compose uses an explicit development authentication adapter so the organization API can
-be exercised locally. This adapter is not a security boundary and must never be enabled
-in production. It requires both `AUTH_MODE=development` and
-`ALLOW_INSECURE_DEV_AUTH=true`. The default Compose startup also runs the checked-in
-Prisma migrations.
-
-Example local API request:
-
-```bash
-curl -X POST http://localhost:3000/api/organizations \
-  -H 'content-type: application/json' \
-  -d '{"name":"Northstar Labs","description":"Local development workspace"}'
-```
-
-The API is only available with `AUTH_MODE=development` in the local Compose profile.
-
-## Governance workflow
-
-Protected operations are `REMOVE_OWNER`, `INVITE_PRIVILEGED_MEMBER`,
-`CHANGE_PRIVILEGED_MEMBERSHIP`, and `UPDATE_POLICY`. A request is bound to a canonical payload
-digest and an idempotency key. Approvals are distinct, policy-scoped, and cannot be issued
-by the requester. Once the configured quorum is reached, execution claims the request in a
-transaction and prevents a second execution.
-
-Current approval endpoints:
-
-```text
-POST /api/organizations/:organizationId/requests
-GET  /api/organizations/:organizationId/requests
-POST /api/organizations/:organizationId/requests/:requestId/approve
-POST /api/organizations/:organizationId/requests/:requestId/reject
-POST /api/organizations/:organizationId/requests/:requestId/cancel
-POST /api/organizations/:organizationId/requests/:requestId/execute
-```
-
-These approvals are currently `APP-LEVEL APPROVAL ONLY`. They are not a cryptographic
-guarantee against a compromised application server until a verified Tide authorization
-proof is bound to the final executor.
-
-New organizations start in `INITIALIZING`. The founder can invite owners directly until
-three owners accept. Activation revokes unused setup owner invitations. After activation,
-owner/admin invitations and changes to privileged memberships require a protected request.
-Owner removal needs two approvals from owners other than the requester and target, so it
-requires at least four active owners and must leave at least three.
-
-Invitation endpoints:
-
-```text
-GET    /api/organizations/:organizationId/invitations
-POST   /api/organizations/:organizationId/invitations
-DELETE /api/organizations/:organizationId/invitations/:invitationId
-POST   /api/invitations/accept
-PATCH  /api/organizations/:organizationId/members/:memberId
-GET    /api/organizations/:organizationId/policies
-GET    /api/organizations/:organizationId/audit
-```
-
-Invitation creation returns an acceptance link once. Only the token hash is stored; the
-recipient must sign in with a verified matching email. Ordinary `MEMBER`/`AUDITOR` changes
-can be made by an active owner or admin using `PATCH /members/:memberId` with a `reason`
-and a `role` and/or `status`. A removed membership cannot be reactivated directly.
-
-Protected request payloads use the existing `POST /requests` envelope with an
-`idempotencyKey`. Examples:
-
-```json
-{"operationType":"INVITE_PRIVILEGED_MEMBER","idempotencyKey":"unique-request-001","payload":{"email":"new-owner@example.test","role":"OWNER","reason":"Add a co-owner"}}
-{"operationType":"CHANGE_PRIVILEGED_MEMBERSHIP","idempotencyKey":"unique-request-002","payload":{"memberId":"membership-id","status":"SUSPENDED","reason":"Access review"}}
-{"operationType":"UPDATE_POLICY","idempotencyKey":"unique-request-003","payload":{"operationType":"INVITE_PRIVILEGED_MEMBER","requiredApprovals":2,"ttlSeconds":3600,"baseVersion":1,"reason":"Shorter approval window"}}
-```
-
-Policy updates always require two distinct owner approvals; the policy for `UPDATE_POLICY`
-cannot itself be edited. Policy updates cancel unexecuted requests for the changed operation.
-The audit API verifies links and hashes for new events, and reports legacy events whose
-old hash format cannot be independently recomputed. The chain has no independent anchor.
-
-For an isolated development database and a running development-auth app, run:
-
-```bash
-GOVERNANCE_TEST_BASE_URL=http://localhost:3000 npm run test:governance
-```
-
-The test requires `DATABASE_URL` and creates unique test organizations. Never run it against
-a shared production database. Tide login and invalid-token tests still require a live realm.
-
-## TideCloak integration
-
-The repository now uses the verified `@tidecloak/nextjs@0.14.40` APIs for:
-
-- `TideCloakProvider`
-- `createTideCloakProxy`
-- `verifyTideCloakToken`
-
-The live integration is enabled only when the Tide variables are configured. For a local
-Tide development server, follow the current vendor setup guide, complete realm enrollment,
-activate the development license, enable QEA, and configure the BusinessVault client with:
-
-```dotenv
-AUTH_MODE=tidecloak
-NEXT_PUBLIC_AUTH_MODE=tidecloak
-APP_ORIGIN=http://localhost:3000
-TIDECLOAK_AUTH_SERVER_URL=http://localhost:8080
-TIDECLOAK_REALM=nextjs-test
-TIDECLOAK_CLIENT_ID=myclient
-NEXT_PUBLIC_TIDECLOAK_AUTH_SERVER_URL=http://localhost:8080
-NEXT_PUBLIC_TIDECLOAK_REALM=nextjs-test
-NEXT_PUBLIC_TIDECLOAK_CLIENT_ID=myclient
-NEXT_PUBLIC_TIDECLOAK_REDIRECT_URI=http://localhost:3000/auth/redirect
-```
-
-Because `NEXT_PUBLIC_*` values are embedded during the Next.js build, rebuild after changing
-them:
-
-```bash
-docker compose build --no-cache
-docker compose up
-```
-
-The application protects dashboard and organization API routes through the TideCloak
-proxy and independently verifies the access token at the API boundary. No Tide realm or
-credentials are stored in this repository. Forseti authorization and Tide E2EE document
-encryption remain pending real realm capability testing.
-
-On Linux, the app service uses host networking so the browser and server both use the
-realm's signed issuer and vendor return host, `http://localhost:8080`. Do not replace it
-with a Docker service hostname or another loopback alias after provisioning the realm.
-
-The local realm initializer generated an ignored `.env.local` with the verified development
-realm values. Start the app outside Docker for the first live login test so both the browser
-and the server can reach TideCloak at `localhost:8080`:
-
-```bash
-npm run dev
-```
-
-Then open `http://localhost:3000/auth/login`. The generated `tidecloak-setup/` directory
-and `tidecloak-data/` directory are intentionally ignored because the adapter and local
-realm state should not be committed.
-
-After login, open `http://localhost:3000/api/auth/session` to confirm the server accepted
-the verified Tide identity. The response includes only the synchronized subject, display
-name, email, and authentication source; it never returns the access token.
-
-For full native Tide operations such as E2EE, provide the generated adapter JSON through
-the ignored `TIDECLOAK_ADAPTER_JSON` and `NEXT_PUBLIC_TIDECLOAK_ADAPTER_JSON` variables.
-Do not commit those values.
-
-Do not broaden BusinessVault CSP based only on CSP warnings emitted by Tide or an ORK error
-page. Add an origin only when a working Tide flow proves that BusinessVault itself blocks a
-required resource.
-
-Cookie-authenticated state changes compare the browser `Origin` header to `APP_ORIGIN`.
-Keep login, dashboard, and API requests on that exact origin; missing or mismatched origins
-are rejected with HTTP `403`.
-
-Stop the stack:
-
-```bash
-docker compose down
-```
-
-Remove data stored in Compose-managed volumes (a custom `POSTGRES_DATA_DIR` is retained):
-
-```bash
-docker compose down -v
-```
-
-## Encrypted document vault
-
-The vault stores documents as ciphertext only. Files and filenames are encrypted in the
-browser; the server receives ciphertext, a SHA-256 of the ciphertext, and minimized
-metadata (declared MIME type, ciphertext size, classification, uploader, timestamps).
-The browser uploads ciphertext directly to MinIO through a presigned POST whose policy
-fixes the object key, `application/octet-stream`, and a byte range. The server re-checks
-size and hash before marking a document available.
-
-```text
-GET  /api/organizations/:organizationId/documents
-POST /api/organizations/:organizationId/documents/upload-init
-GET  /api/organizations/:organizationId/documents/:documentId
-POST /api/organizations/:organizationId/documents/:documentId/commit
-POST /api/organizations/:organizationId/documents/:documentId/download
-```
-
-- UI: `/dashboard/vault`; Tide realm test panel: `/dashboard/vault/diagnostics`.
-- Encryption: Tide `doEncrypt`/`doDecrypt` with tag `vault` (realm roles
-  `_tide_vault.selfencrypt` and `_tide_vault.selfdecrypt`). In `AUTH_MODE=development`
-  the UI uses a clearly labelled **DEMO — NOT E2EE** browser AES key instead, and the
-  server rejects that format whenever `AUTH_MODE` is not `development`.
-- Decryption is **uploader-only** (Tide self-decrypt). Shared organization decryption is
-  blocked on Forseti policy-protected encryption, whose policy-creation docs are not yet
-  published.
-- Limits: 5 MiB ciphertext by default (`VAULT_MAX_CIPHERTEXT_BYTES`, hard cap 10 MiB),
-  declared-type allowlist, 15-minute pending uploads, 60-second download URLs,
-  30 requests/minute per user for upload-init and download (single-instance only).
-- Large-file envelope encryption is deferred until a key-wrapping design is reviewed.
-
-Tests (Postgres and MinIO from Compose must be running; HTTP suites also need the app on
-port 3000 in development auth mode):
-
-```bash
-npm run test:vault
-VAULT_IT=1 npm run test:vault
-```
-
-After uploading a file containing a canary string, check that it reached no server-side
-store:
-
-```bash
-node --no-warnings --experimental-strip-types scripts/vault/leak-scan.ts YOUR-CANARY-STRING
-```
-
-The feature status matrix, threat notes, and Tide verification record are in
-`docs/vault/STATUS.md` and `docs/vault/TIDE_E2EE_VERIFICATION.md`.
-
-## Current status
-
-About 90% of the Phase 1 MVP is working: organizations, members and invitations, governed
-requests and approvals (application-level), the encrypted vault, asset registry, audit log with
-hash-chain verification, security settings and system health. Live Tide E2EE and cryptographic
-(Forseti) enforcement are not verified. See `docs/MVP_STATUS.md` for the feature matrix and
-evidence, `docs/RUNBOOK.md` for Windows and Linux steps, and `docs/HANDOFF.md` to resume work.
+Further reading: [MVP feature matrix](docs/MVP_STATUS.md), [demo walkthrough](docs/DEMO_FILMING.md), [vault verification](docs/vault/TIDE_E2EE_VERIFICATION.md), and [security model](docs/SECURITY_MODEL.md).
