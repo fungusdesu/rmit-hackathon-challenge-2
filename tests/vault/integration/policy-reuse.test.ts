@@ -20,8 +20,8 @@ describe.skipIf(skipIT)("presigned POST policy reuse (F-01)", () => {
   });
 
   // F-01 regression: served bytes must still match the committed hash after a policy replay.
-  // Fails until E promotes committed objects to a server-only key on commit. Enable when merged.
-  it.skip("F-01: committed object cannot be replaced by reusing the upload policy", async () => {
+  // Fixed: commit promotes the object to a server-only key.
+  it("F-01: committed object cannot be replaced by reusing the upload policy", async () => {
     const owner = await createUser("reuse2");
     const org = await createOrg(owner);
     const reader = await createUser("reuse2r");

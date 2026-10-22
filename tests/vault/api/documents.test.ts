@@ -197,6 +197,24 @@ describe.skipIf(process.env.VAULT_IT !== "1")("vault documents service", () => {
     await expectCode(issueDownload(orgId, p.member, init.document.id), "invalid_state");
   });
 
+  it("F-01: commit promotes ciphertext to a new server-only key", async () => {
+    const { committed, doc } = await uploadAndCommit(p.member);
+    const after = await db.document.findUniqueOrThrow({ where: { id: committed.id } });
+    expect(after.objectKey).not.toBe(doc.objectKey);
+    expect(storage.has(doc.objectKey)).toBe(false);
+    expect(storage.has(after.objectKey)).toBe(true);
+    storage.putObject(doc.objectKey, new Uint8Array([7, 7, 7, 7]));
+    expect(await storage.getObjectBytes(after.objectKey)).toEqual(new Uint8Array([1, 2, 3, 4]));
+    expect(JSON.stringify(committed)).not.toContain(after.objectKey);
+  });
+
+  it("F-01: hash mismatch leaves no promoted copy behind", async () => {
+    const { init, doc } = await uploadAs(p.member);
+    storage.putObject(doc.objectKey, new Uint8Array([9, 9, 9, 9]), "application/octet-stream");
+    await expectCode(commitUpload(orgId, p.member, init.document.id), "integrity_mismatch");
+    expect(storage.keys()).toHaveLength(0);
+  });
+
   it("malformed ids are not_found before any DB query", async () => {
     const membershipSpy = vi.spyOn(db.membership, "findFirst");
     const documentSpy = vi.spyOn(db.document, "findFirst");

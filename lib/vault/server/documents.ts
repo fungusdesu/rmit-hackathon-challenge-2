@@ -154,26 +154,47 @@ export async function commitUpload(organizationId: string, principal: Principal,
   const head = await storage.headObject(doc.objectKey);
   if (!head) throw new VaultError("invalid_state");
 
-  let valid = head.size === doc.size && head.size <= maxCiphertextBytes() && head.contentType === CIPHERTEXT_OBJECT_CONTENT_TYPE;
+  const isValidHead = (h: { size: number; contentType: string | null } | null) =>
+    !!h && h.size === doc.size && h.size <= maxCiphertextBytes() && h.contentType === CIPHERTEXT_OBJECT_CONTENT_TYPE;
+
+  // F-01: promote the ciphertext to a server-only key that no presigned policy can write, then verify
+  // the promoted copy. Replaying the upload policy afterwards only touches the dead upload key.
+  const uploadKey = doc.objectKey;
+  let finalKey: string | null = null;
+  let valid = isValidHead(head);
   if (valid) {
-    const bytes = await storage.getObjectBytes(doc.objectKey);
-    valid = bytes.byteLength === doc.size && createHash("sha256").update(bytes).digest("hex") === doc.hash;
+    finalKey = generateObjectKey();
+    await storage.copyObject(uploadKey, finalKey);
+    valid = isValidHead(await storage.headObject(finalKey));
+    if (valid) {
+      const bytes = await storage.getObjectBytes(finalKey);
+      valid = bytes.byteLength === doc.size && createHash("sha256").update(bytes).digest("hex") === doc.hash;
+    }
   }
   if (!valid) {
+    if (finalKey) await storage.deleteObject(finalKey).catch(() => undefined);
     await rejectDocument(organizationId, membership.userId, doc);
     throw new VaultError("integrity_mismatch");
   }
 
+  const promotedKey = finalKey as string;
   const committedAt = new Date();
-  const updated = await db.$transaction(async (tx) => {
-    const result = await tx.document.updateMany({
-      where: { id: doc.id, organizationId, status: DocumentStatus.PENDING_UPLOAD },
-      data: { status: DocumentStatus.AVAILABLE, committedAt },
+  let updated: DocumentWithOwner;
+  try {
+    updated = await db.$transaction(async (tx) => {
+      const result = await tx.document.updateMany({
+        where: { id: doc.id, organizationId, status: DocumentStatus.PENDING_UPLOAD },
+        data: { status: DocumentStatus.AVAILABLE, committedAt, objectKey: promotedKey },
+      });
+      if (result.count !== 1) throw new VaultError("invalid_state");
+      await appendAudit(tx, organizationId, membership.userId, "DOCUMENT_COMMITTED", doc.id, auditPayload(doc));
+      return tx.document.findFirstOrThrow({ where: { id: doc.id, organizationId }, include: ownerInclude });
     });
-    if (result.count !== 1) throw new VaultError("invalid_state");
-    await appendAudit(tx, organizationId, membership.userId, "DOCUMENT_COMMITTED", doc.id, auditPayload(doc));
-    return tx.document.findFirstOrThrow({ where: { id: doc.id, organizationId }, include: ownerInclude });
-  });
+  } catch (error) {
+    await storage.deleteObject(promotedKey).catch(() => undefined);
+    throw error;
+  }
+  await storage.deleteObject(uploadKey).catch(() => undefined);
   return toDocumentMetadata(updated);
 }
 
