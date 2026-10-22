@@ -252,7 +252,7 @@ export default function HeroScene() {
     <>
       <div className="hero-scene" aria-hidden="true"><canvas ref={canvasRef} /></div>
       <p className="scene-description">Shared control, illustrated: three of five owners send approvals before the protected vault activates.</p>
-      <div className="scene-controls"><button type="button" aria-label={paused ? "Resume background animation" : "Pause background animation"} aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? "Resume motion" : "Pause motion"}<span aria-hidden="true">{paused ? "▷" : "Ⅱ"}</span></button></div>
+      <div className="scene-controls"><button type="button" aria-label={paused ? "Resume background animation" : "Pause background animation"} aria-pressed={paused} onClick={() => setPaused(value => { window.dispatchEvent(new CustomEvent("businessvault:motion", { detail: !value })); return !value; })}>{paused ? "Resume motion" : "Pause motion"}<span aria-hidden="true">{paused ? "▷" : "Ⅱ"}</span></button></div>
     </>
   );
 }

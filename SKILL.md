@@ -325,3 +325,11 @@ The next implementation slice is:
 - Added ignored `.env.local` values for BusinessVault live Tide testing.
 - Verified the live Tide proxy rejects an unauthenticated API request with `401`.
 - Learned that Docker Compose's app container still uses the development auth profile by default; live Tide testing currently runs the BusinessVault server directly with `npm run dev` so both server and browser resolve TideCloak through `localhost:8080`.
+
+### 2026-10-22: Larger UI and feature previews
+
+- Increased workspace typography and control sizes, and replaced abstract navigation and feature symbols with recognizable SVG icons.
+- Added a pointer-reactive node network across the public landing page behind the existing quorum visualization. Reduced-motion visitors get a still rendering; the motion control pauses both layers.
+- Built navigable, interactive UI previews for approvals, vault, members, assets, audit, and settings with search, filters, and record details.
+- Kept every sample screen visibly labeled as illustrative. Existing organization and protected-request APIs remain the only connected workflows; no pending security capability is represented as active.
+- Validated a production Docker build, all six preview routes, filtering and selection, desktop and mobile rendering, and lack of horizontal overflow.

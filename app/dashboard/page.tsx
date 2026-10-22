@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { apiJson, useWorkspace, type ActionRequest, type Summary } from "./use-workspace";
+import Icon from "../components/ui-icon";
 
 export default function DashboardPage() {
   const workspace = useWorkspace();
@@ -68,12 +69,12 @@ export default function DashboardPage() {
         {dataError && <div className="workspace-state workspace-error" role="alert"><p>{dataError}</p><button type="button" onClick={() => window.location.reload()}>Reload</button></div>}
         {summary && !dataError && <>
           <section className="metric-grid" aria-label="Live organization summary">
-            <article><div className="metric-top"><span>Open requests</span><span className="metric-icon" aria-hidden="true">↗</span></div><strong>{summary.pendingApprovals.toLocaleString()}</strong><small>Pending approval</small></article>
-            <article><div className="metric-top"><span>Document records</span><span className="metric-icon" aria-hidden="true">◇</span></div><strong>{summary.protectedDocuments.toLocaleString()}</strong><small>Encryption flow pending</small></article>
-            <article><div className="metric-top"><span>Active owners</span><span className="metric-icon" aria-hidden="true">◎</span></div><strong>{summary.activeOwners.toLocaleString()}</strong><small>Current memberships</small></article>
-            <article><div className="metric-top"><span>Audit events</span><span className="metric-icon" aria-hidden="true">⌁</span></div><strong>{summary.securityEvents.toLocaleString()}</strong><small>Last 30 days</small></article>
+            <article><div className="metric-top"><span>Open requests</span><Icon name="requests" size={22} /></div><strong>{summary.pendingApprovals.toLocaleString()}</strong><small>Pending approval</small></article>
+            <article><div className="metric-top"><span>Document records</span><Icon name="vault" size={22} /></div><strong>{summary.protectedDocuments.toLocaleString()}</strong><small>Encryption flow pending</small></article>
+            <article><div className="metric-top"><span>Active owners</span><Icon name="members" size={22} /></div><strong>{summary.activeOwners.toLocaleString()}</strong><small>Current memberships</small></article>
+            <article><div className="metric-top"><span>Audit events</span><Icon name="audit" size={22} /></div><strong>{summary.securityEvents.toLocaleString()}</strong><small>Last 30 days</small></article>
           </section>
-          <section className="panel overview-requests"><div className="panel-heading"><div><span className="overline">Governance</span><h2>Recent requests</h2></div><Link href="/dashboard/requests">View all <span aria-hidden="true">→</span></Link></div>{requests.length === 0 ? <p className="workspace-empty-copy">No protected action requests yet.</p> : <div className="request-list">{requests.slice(0, 4).map(request => <div className="request-item" key={request.id}><span className="request-type type-owner" aria-hidden="true">↗</span><div className="request-copy"><strong>{request.operationType === "REMOVE_OWNER" ? "Remove owner" : request.operationType}</strong><span>Requested by {request.requester.displayName} · {request.approvals.filter(item => item.decision === "APPROVED").length} approvals</span></div><span className="request-risk">{request.status}</span></div>)}</div>}</section>
+          <section className="panel overview-requests"><div className="panel-heading"><div><span className="overline">Governance</span><h2>Recent requests</h2></div><Link href="/dashboard/requests">View all <Icon name="arrow" size={16} /></Link></div>{requests.length === 0 ? <p className="workspace-empty-copy">No protected action requests yet.</p> : <div className="request-list">{requests.slice(0, 4).map(request => <div className="request-item" key={request.id}><span className="request-type type-owner"><Icon name="requests" size={20} /></span><div className="request-copy"><strong>{request.operationType === "REMOVE_OWNER" ? "Remove owner" : request.operationType}</strong><span>Requested by {request.requester.displayName} · {request.approvals.filter(item => item.decision === "APPROVED").length} approvals</span></div><span className="request-risk">{request.status}</span></div>)}</div>}</section>
         </>}
       </>}
     </main>
