@@ -36,7 +36,12 @@ export async function requirePrincipal(request: NextRequest): Promise<Principal>
     const bearerToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
     const token = cookieToken ?? bearerToken;
     if (!token) throw new AuthenticationError("A TideCloak access token is required");
-    const payload = await verifyTideCloakToken(config, token);
+    let payload;
+    try {
+      payload = await verifyTideCloakToken(config, token);
+    } catch {
+      throw new AuthenticationError("TideCloak token verification failed");
+    }
     if (!payload) throw new AuthenticationError("TideCloak token verification failed");
     const subject = typeof payload.sub === "string" ? payload.sub : null;
     if (!subject) throw new AuthenticationError("Verified TideCloak token has no subject");

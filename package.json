@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:tide": "node --test tests/tide/*.test.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "test": "vitest run",
@@ -19,6 +20,7 @@
     "@aws-sdk/s3-request-presigner": "3.1155.0",
     "@prisma/client": "6.19.0",
     "@tidecloak/nextjs": "^0.14.40",
+    "@tidecloak/verify": "^0.14.33",
     "next": "16.4.2",
     "react": "19.1.0",
     "react-dom": "19.1.0"

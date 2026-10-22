@@ -11,6 +11,7 @@ export async function proxy(request: NextRequest) {
     protectedRoutes: {
       "/dashboard": [],
       "/dashboard/*": [],
+      "/api/auth/session": [],
       "/api/organizations/*": [],
     },
     onFailure: ({ token }, currentRequest) => {
@@ -21,5 +22,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard", "/dashboard/:path*", "/api/organizations/:path*"],
+  matcher: ["/dashboard", "/dashboard/:path*", "/api/auth/session", "/api/organizations/:path*"],
 };

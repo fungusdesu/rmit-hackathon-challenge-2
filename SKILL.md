@@ -208,6 +208,8 @@ Completed:
 - Verified `@tidecloak/nextjs@0.14.40` APIs wired for provider, proxy, and server token validation
 - Tide public build arguments separated from runtime server configuration
 - Local TideCloak `nextjs-test` realm provisioned with QEA and `myclient` adapter
+- Full Tide adapter JSON support added for server and client configuration
+- Tide logout route added at `/auth/logout`
 - README and environment defaults added
 
 Not completed:
@@ -316,4 +318,20 @@ The next implementation slice is:
 - Generated the ignored adapter at `tidecloak-setup/tidecloak.json`.
 - Added ignored `.env.local` values for BusinessVault live Tide testing.
 - Verified the live Tide proxy rejects an unauthenticated API request with `401`.
-- Learned that Docker Compose's app container still uses the development auth profile by default; live Tide testing currently runs the BusinessVault server directly with `npm run dev` so both server and browser resolve TideCloak through `localhost:8080`.
+- Learned that Tide's signed vendor return URL must match exactly; the Linux app container uses host networking so browser and server both use `http://localhost:8080`.
+
+### 2026-10-22: Tide runtime hardening
+
+- Wrapped SDK verification failures so malformed or invalid token errors return authentication failure rather than an internal server error.
+- Verified Tide realm discovery returns HTTP `200`.
+- Verified Tide-mode `/auth/login` and `/auth/logout` routes load.
+- Verified missing-token and malformed-bearer requests return HTTP `401`.
+- Added support for the generated full Tide adapter JSON without committing it.
+- Resolved Docker-to-host issuer networking with Linux host networking, preserving the provisioned `http://localhost:8080` issuer.
+- Diagnosed `TIDE-SWE-UNHANDLED` as a frontend build missing the generated Tide vendor/ORK/client-origin adapter fields.
+- Added the full ignored adapter to server runtime and the public Next.js build; verified the server parses `vendorId` and the client bundle contains the generated vendor configuration.
+- Diagnosed `Invalid Vendor Return URL` as use of an unprovisioned `tidecloak.localhost` alias; restored the exact signed `localhost:8080` return host.
+- Added `/api/auth/session` to return only the verified Tide principal, never token material.
+- Added six Tide verifier tests covering valid, wrong-issuer, wrong-client, expired, invalid-signature, and malformed tokens.
+- Removed the local router redirect race from logout so the Tide SDK owns session termination.
+- Determined the observed ORK CSP warning accompanied the invalid return-URL error; BusinessVault CSP was not broadened without evidence of a blocked working flow.
