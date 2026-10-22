@@ -270,6 +270,8 @@ The feature status matrix, threat notes, and Tide verification record are in
 
 ## Current status
 
-The repository contains the application foundation, organization and governance APIs,
-and local services. Governance remains application-level. Live Tide login, external
-cryptographic action authorization, and the encrypted vault require separate validation.
+About 90% of the Phase 1 MVP is working: organizations, members and invitations, governed
+requests and approvals (application-level), the encrypted vault, asset registry, audit log with
+hash-chain verification, security settings and system health. Live Tide E2EE and cryptographic
+(Forseti) enforcement are not verified. See `docs/MVP_STATUS.md` for the feature matrix and
+evidence, `docs/RUNBOOK.md` for Windows and Linux steps, and `docs/HANDOFF.md` to resume work.
